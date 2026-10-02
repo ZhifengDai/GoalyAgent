@@ -47,6 +47,32 @@ function normalizePhone(s: string): string {
   return s.replace(/[\s\-().]/g, "");
 }
 
+const MONTH_NAMES: Record<string, string> = {
+  january:"01",february:"02",march:"03",april:"04",may:"05",june:"06",
+  july:"07",august:"08",september:"09",october:"10",november:"11",december:"12",
+  jan:"01",feb:"02",mar:"03",apr:"04",jun:"06",jul:"07",
+  aug:"08",sep:"09",oct:"10",nov:"11",dec:"12",
+};
+
+function normalizeDob(s: string): string {
+  const t = s.trim();
+  // Already YYYY-MM-DD
+  if (/^\d{4}-\d{2}-\d{2}$/.test(t)) return t;
+  // YYYY-M-D / YYYY.M.D / YYYY/M/D
+  const yFirst = t.match(/^(\d{4})[-./](\d{1,2})[-./](\d{1,2})$/);
+  if (yFirst) return `${yFirst[1]}-${yFirst[2]!.padStart(2,"0")}-${yFirst[3]!.padStart(2,"0")}`;
+  // M/D/YYYY or MM/DD/YYYY (US)
+  const us = t.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  if (us) return `${us[3]}-${us[1]!.padStart(2,"0")}-${us[2]!.padStart(2,"0")}`;
+  // "March 15, 1985" or "Mar 15 1985"
+  const mdy = t.match(/^([a-zA-Z]+)\s+(\d{1,2})[,\s]+(\d{4})$/);
+  if (mdy) { const m = MONTH_NAMES[mdy[1]!.toLowerCase()]; if (m) return `${mdy[3]}-${m}-${mdy[2]!.padStart(2,"0")}`; }
+  // "15 March 1985" or "15 Mar 1985"
+  const dmy = t.match(/^(\d{1,2})\s+([a-zA-Z]+)[,\s]+(\d{4})$/);
+  if (dmy) { const m = MONTH_NAMES[dmy[2]!.toLowerCase()]; if (m) return `${dmy[3]}-${m}-${dmy[1]!.padStart(2,"0")}`; }
+  return t; // fallback: pass through unchanged
+}
+
 // ── Per-field match ───────────────────────────────────────────────────────────
 
 function matchField(field: IdentityField, provided: string, holder: Policyholder): boolean {
@@ -57,7 +83,7 @@ function matchField(field: IdentityField, provided: string, holder: Policyholder
       return names.includes(norm);
     }
     case "dob":
-      return provided.trim() === holder.dob;
+      return normalizeDob(provided) === holder.dob;
     case "phone": {
       const norm = normalizePhone(provided);
       const phones = [holder.phone, ...(holder.phone_aliases ?? [])].map(normalizePhone);

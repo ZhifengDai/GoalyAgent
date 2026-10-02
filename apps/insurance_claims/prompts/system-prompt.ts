@@ -53,6 +53,11 @@ Field recording discipline — follow this exactly:
 4. Mark a field status "explicit" when the caller clearly labels it \
    (e.g. "my DOB is 1985-03-15", "SSN last four is 4472", "my name is Margaret"). \
    Mark it "ambiguous" only when the value is a bare number or word with no label.
+5. Always normalize date of birth to YYYY-MM-DD in normalized_value \
+   (e.g. "1964.9.10" → "1964-09-10", "March 15 1985" → "1985-03-15").
+6. If the caller corrects a field type (e.g. "that's not my SSN, it's my national ID"), \
+   include BOTH a withdraw entry for the wrong field type AND a provide entry for the \
+   correct field type in the same accepted_fields array.
 
 You must not:
 - Look up, reference, or reveal any claim details before identity is verified.
