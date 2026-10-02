@@ -28,6 +28,12 @@ export interface CaseHintFact {
   source_message_id: string;
 }
 
+export interface VerificationFailureFact {
+  status: "insufficient_information" | "no_match" | "ambiguous" | "conflict";
+  blocking_conflicts: string[];
+  identity_revision: number;
+}
+
 export interface SessionFacts {
   revision: number;
   identity: {
@@ -38,6 +44,8 @@ export interface SessionFacts {
     // Fields blocked from verification until clarification is resolved.
     pending_clarification: IdentityField[];
     verification: VerificationFact | null;
+    // Last failed verification attempt (cleared on new identity_revision or success).
+    verification_failure: VerificationFailureFact | null;
   };
   case_hints: CaseHintFact | null;
   case_resolution: {
@@ -63,6 +71,7 @@ export function reduceSessionEvents(events: SessionEvent[]): SessionFacts {
       provided_fields: {},
       pending_clarification: [],
       verification: null,
+      verification_failure: null,
     },
     case_hints: null,
     case_resolution: { status: "unresolved", selected_case_id: null, selection_basis: null },
@@ -119,7 +128,11 @@ export function reduceSessionEvents(events: SessionEvent[]): SessionFacts {
         if (payload.case_hints) {
           facts.case_hints = { ...payload.case_hints, source_message_id: payload.source_message_id };
         }
-        if (identityChanged) facts.identity.identity_revision++;
+        if (identityChanged) {
+          facts.identity.identity_revision++;
+          // A field change invalidates any prior failure — fresh fields, fresh attempt.
+          facts.identity.verification_failure = null;
+        }
         break;
       }
 
@@ -144,14 +157,20 @@ export function reduceSessionEvents(events: SessionEvent[]): SessionFacts {
           field_versions: payload.field_versions,
           source_event_id: event.event_id,
         };
+        facts.identity.verification_failure = null;
         break;
       }
 
       case "identity_verification_failed": {
         // A failed result targeted an outdated revision: ignore.
         if (event.payload.identity_revision !== facts.identity.identity_revision) break;
-        // Clear any stale verification that might have been set by a race.
+        // Clear any stale verification and record why it failed.
         facts.identity.verification = null;
+        facts.identity.verification_failure = {
+          status: event.payload.status,
+          blocking_conflicts: event.payload.blocking_conflicts,
+          identity_revision: event.payload.identity_revision,
+        };
         break;
       }
 

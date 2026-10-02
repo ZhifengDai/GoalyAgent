@@ -17,16 +17,34 @@ export function buildRuntimeContext(
   };
 
   switch (state.phase) {
-    case "VERIFY_ID":
+    case "VERIFY_ID": {
+      const failure = facts.identity.verification_failure;
+      const collectedCount = Object.keys(facts.identity.provided_fields).length;
+      // When verification was attempted but failed, fields are sufficient but incorrect.
+      const verificationAttempted = failure !== null && collectedCount >= 3;
       return {
         ...base,
         identity: {
-          status: "pending",
+          status: verificationAttempted ? "verification_failed" : "collecting",
+          verification_failure: failure
+            ? {
+                reason: failure.status,
+                // Never reveal which specific field conflicted — only say the attempt failed.
+                hint: failure.status === "conflict"
+                  ? "One or more fields did not match our records. Ask the caller to double-check their details."
+                  : failure.status === "no_match"
+                  ? "No matching record found. The caller may not be the policyholder or fields may be incorrect."
+                  : failure.status === "ambiguous"
+                  ? "Multiple potential matches found. Collect additional fields to disambiguate."
+                  : null,
+              }
+            : null,
           collected_fields: Object.keys(facts.identity.provided_fields),
           missing_field_options: state.missing_identity_fields,
           pending_clarification: state.pending_clarification,
-          additional_matches_required:
-            Math.max(0, 3 - Object.keys(facts.identity.provided_fields).length),
+          additional_matches_required: verificationAttempted
+            ? 0
+            : Math.max(0, 3 - collectedCount),
         },
         // Surface remembered hints so the model knows not to re-ask.
         remembered_hints: facts.case_hints
@@ -40,6 +58,7 @@ export function buildRuntimeContext(
           : null,
         case_access: "denied",
       };
+    }
 
     case "RESOLVE_INTENT":
       return {
