@@ -97,7 +97,7 @@ export function deriveSopState(facts: SessionFacts): SopState {
 
   return {
     phase: "VERIFY_ID",
-    allowed_tools: ["request_human_handoff"],
+    allowed_tools: ["record_user_information"],
     missing_identity_fields: needed > 0
       ? ["name", "dob", "phone", "email", "ssn_last4"].filter(f => !collectedFields.includes(f))
       : [],
