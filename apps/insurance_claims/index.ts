@@ -6,8 +6,7 @@ import type { Message } from "../../agent-loop/types.ts";
 
 const SESSION_ID = `session_${Date.now()}`;
 
-const conversationModel  = createOpenAIModel({ model: "gpt-4.1" });
-const extractionModel    = createOpenAIModel({ model: "gpt-4.1-mini" });
+const conversationModel = createOpenAIModel({ model: "gpt-4.1" });
 
 const history: Message[] = [];
 
@@ -23,7 +22,6 @@ async function chat(userInput: string): Promise<void> {
     sessionId: SESSION_ID,
     userMessage: userInput,
     model: conversationModel,
-    extractionModel,
     priorMessages: history,
     nowIso,
     emit: async (event) => {

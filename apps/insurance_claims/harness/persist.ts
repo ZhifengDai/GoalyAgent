@@ -4,25 +4,44 @@ import { reduceSessionEvents } from "../session/facts.ts";
 import { deriveSopState } from "../session/state.ts";
 import { buildRuntimeContext } from "../prompts/context-builder.ts";
 import { getAllowedTools } from "../tools/tool-registry.ts";
+import { verifyIdentity } from "../tools/verify-identity.ts";
 
 /**
- * afterToolCall hook — refresh Facts, State, and context after every tool result.
- * This ensures the next prepareRequest sees up-to-date state without a round-trip.
+ * afterToolCall hook — triggered after every tool the LLM calls.
+ *
+ * For record_user_information: check if we now have ≥3 usable identity
+ * fields and no existing verification. If so, run verifyIdentity immediately
+ * so the LLM sees the updated phase in its next request within this turn.
+ *
+ * For all tools: refresh Facts → State → RuntimeContext so prepareRequest
+ * picks up the latest state without an extra round-trip.
  */
 export async function persist(
-  _call: ToolCall,
+  call: ToolCall,
   _result: ToolMessage,
   context: Context,
   sessionId: string,
   nowIso: string,
 ): Promise<void> {
-  // Tool functions persist their own events internally (appendEvent inside execute).
-  // Here we only need to refresh the in-memory context so the next model request
-  // reflects the latest state without waiting for prepareRequest.
-  const events = getEvents(sessionId);
-  const facts  = reduceSessionEvents(events);
-  const state  = deriveSopState(facts);
+  if (call.name === "record_user_information") {
+    const facts = reduceSessionEvents(getEvents(sessionId));
+    const usableFieldCount = Object.keys(facts.identity.provided_fields)
+      .filter(f => !facts.identity.pending_clarification.includes(f as never))
+      .length;
 
-  context.runtimeContext = buildRuntimeContext(facts, state, nowIso);
-  context.tools          = getAllowedTools(state, sessionId, nowIso);
+    if (
+      !facts.identity.verification &&
+      usableFieldCount >= 3 &&
+      facts.identity.identity_revision > 0
+    ) {
+      verifyIdentity(sessionId);
+    }
+  }
+
+  // Refresh context regardless of which tool ran.
+  const ev = getEvents(sessionId);
+  const f  = reduceSessionEvents(ev);
+  const s  = deriveSopState(f);
+  context.runtimeContext = buildRuntimeContext(f, s, nowIso);
+  context.tools          = getAllowedTools(s, sessionId, nowIso);
 }
