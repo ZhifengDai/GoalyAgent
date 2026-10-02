@@ -294,9 +294,12 @@ function makeRequestHumanHandoff(sessionId: string): Tool {
   return {
     name: "request_human_handoff",
     description:
-      "Create a human handoff request. Use when the caller asks for a human agent, " +
-      "when verification cannot be completed, or when the issue cannot be resolved through " +
-      "available claim data. A request being created is not the same as a human being on the line.",
+      "Create a human handoff request. " +
+      "Use ONLY when: (1) the caller explicitly asks to speak with a human agent, OR " +
+      "(2) all five identity field options (name, dob, phone, email, ssn_last4) have been " +
+      "tried and none produced a verified match, OR (3) the issue is outside claim data scope. " +
+      "Do NOT use this because fields seem insufficient — collect the missing fields first. " +
+      "A request being created is not the same as a human being on the line.",
     parameters: {
       type: "object",
       properties: {
