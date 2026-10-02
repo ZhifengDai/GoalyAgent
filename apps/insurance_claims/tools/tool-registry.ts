@@ -60,7 +60,7 @@ function makeRecordUserInformation(sessionId: string): Tool {
           items: {
             type: "object",
             properties: {
-              field:            { type: "string", enum: ["name","dob","phone","email","ssn_last4"] },
+              field:            { type: "string", enum: ["name","dob","phone","email","ssn_last4","national_id_last4"] },
               subject:          { type: "string", enum: ["caller","policyholder","other","unknown"] },
               operation:        { type: "string", enum: ["provide","correct","withdraw"] },
               raw_value:        { type: "string" },

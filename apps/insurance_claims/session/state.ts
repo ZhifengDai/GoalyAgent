@@ -99,7 +99,7 @@ export function deriveSopState(facts: SessionFacts): SopState {
     phase: "VERIFY_ID",
     allowed_tools: ["record_user_information"],
     missing_identity_fields: needed > 0
-      ? ["name", "dob", "phone", "email", "ssn_last4"].filter(f => !collectedFields.includes(f))
+      ? ["name", "dob", "phone", "email", "ssn_last4", "national_id_last4"].filter(f => !collectedFields.includes(f))
       : [],
     pending_clarification: pending,
     party_id: null,

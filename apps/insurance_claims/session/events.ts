@@ -2,7 +2,7 @@ export const SOP_VERSION = "insurance-sop-v1" as const;
 
 // ── Identity fields the extraction LLM may observe ───────────────────────────
 
-export type IdentityField = "name" | "dob" | "phone" | "email" | "ssn_last4";
+export type IdentityField = "name" | "dob" | "phone" | "email" | "ssn_last4" | "national_id_last4";
 export type Subject = "caller" | "policyholder" | "other" | "unknown";
 export type Operation = "provide" | "correct" | "withdraw";
 export type ObservationStatus = "explicit" | "ambiguous";

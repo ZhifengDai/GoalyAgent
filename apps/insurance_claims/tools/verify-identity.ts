@@ -70,6 +70,8 @@ function matchField(field: IdentityField, provided: string, holder: Policyholder
     }
     case "ssn_last4":
       return holder.id_type === "ssn_last4" && provided === holder.id_last4;
+    case "national_id_last4":
+      return holder.id_type === "national_id_last4" && provided === holder.id_last4;
   }
 }
 

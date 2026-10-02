@@ -14,7 +14,7 @@ test("VERIFY_ID: starts with no fields, stays in VERIFY_ID", () => {
   const state = deriveSopState(facts);
   assert.equal(state.phase, "VERIFY_ID");
   assert.equal(state.party_id, null);
-  assert.equal(state.missing_identity_fields.length, 5);
+  assert.equal(state.missing_identity_fields.length, 6);
 });
 
 test("VERIFY_ID: recording two fields is not enough to advance", () => {
