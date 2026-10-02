@@ -102,7 +102,7 @@ export function reduceSessionEvents(events: SessionEvent[]): SessionFacts {
             identityChanged = true;
           } else {
             // provide or correct
-            if (existing && existing.value === obs.normalized_value) break; // no-op
+            if (existing && existing.value === obs.normalized_value) continue; // no-op
             facts.identity.provided_fields[obs.field] = {
               subject: obs.subject,
               value: obs.normalized_value,
