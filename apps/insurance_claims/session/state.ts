@@ -44,24 +44,26 @@ export function deriveSopState(facts: SessionFacts): SopState {
     return terminal("DONE", facts);
   }
 
-  // POST_PROCESS: case has been handled; awaiting email decision.
-  if (facts.case_resolution.status === "resolved" && facts.identity.verification) {
+  // POST_PROCESS: customer made an explicit email decision (send or skip).
+  if (
+    facts.case_resolution.status === "resolved" &&
+    facts.identity.verification &&
+    facts.customer_decisions.email_summary !== "unknown"
+  ) {
     const emailDecision = facts.customer_decisions.email_summary;
-    if (emailDecision === "unknown" || emailDecision === "send") {
-      return {
-        phase: "POST_PROCESS",
-        allowed_tools: ["record_customer_decision", "prepare_summary_email", "send_summary_email", "request_human_handoff"],
-        missing_identity_fields: [],
-        pending_clarification: [],
-        party_id: facts.identity.verification.party_id,
-        next_requirement: emailDecision === "send"
-          ? "收件人和摘要已确认；发送邮件"
-          : "询问用户是否发送摘要邮件",
-      };
-    }
+    return {
+      phase: "POST_PROCESS",
+      allowed_tools: ["record_customer_decision", "prepare_summary_email", "send_summary_email", "request_human_handoff"],
+      missing_identity_fields: [],
+      pending_clarification: [],
+      party_id: facts.identity.verification.party_id,
+      next_requirement: emailDecision === "send"
+        ? "收件人和摘要已确认；发送邮件"
+        : "用户已选择跳过，结束流程",
+    };
   }
 
-  // PROCESS_CASE: intent resolved, case selected, identity verified.
+  // PROCESS_CASE: case selected, identity verified, email decision not yet made.
   if (
     facts.case_resolution.status === "resolved" &&
     facts.identity.verification
@@ -72,7 +74,7 @@ export function deriveSopState(facts: SessionFacts): SopState {
       missing_identity_fields: [],
       pending_clarification: [],
       party_id: facts.identity.verification.party_id,
-      next_requirement: "解答案件问题",
+      next_requirement: "解答案件问题，完成后询问是否发送摘要邮件",
     };
   }
 
