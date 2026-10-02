@@ -1,4 +1,4 @@
-import type { ModelFn, RunResult, Event } from "../../../agent-loop/types.ts";
+import type { ModelFn, RunResult, Event, Message } from "../../../agent-loop/types.ts";
 import { runAgentLoop } from "../../../agent-loop/agent-loop.ts";
 import { appendEvent, getEvents, makeEventId, SOP_VERSION } from "../session/events.ts";
 import type { FieldObservation, CaseHintObservation } from "../session/events.ts";
@@ -29,6 +29,7 @@ export interface HandleMessageOptions {
   userMessage: string;
   model: ModelFn;            // conversation LLM
   extractionModel: ModelFn;  // dedicated extraction LLM (may be the same)
+  priorMessages?: Message[]; // conversation history from previous turns
   emit?: (event: Event) => void | Promise<void>;
   nowIso?: string;
   maxTurns?: number;
@@ -39,6 +40,7 @@ export interface HandleMessageOptions {
 export async function handleMessage(opts: HandleMessageOptions): Promise<RunResult> {
   const {
     sessionId, userMessage, model, extractionModel,
+    priorMessages = [],
     emit, signal, maxTurns = 8, maxToolCalls = 16,
   } = opts;
   const nowIso = opts.nowIso ?? new Date().toISOString();
@@ -125,7 +127,7 @@ export async function handleMessage(opts: HandleMessageOptions): Promise<RunResu
   return runAgentLoop(userMessage, {
     systemPrompt: buildSystemPrompt(),
     runtimeContext,
-    messages: [],   // fresh per-message context; caller manages history externally
+    messages: [...priorMessages],  // carry history from previous turns
     tools,
   }, {
     model,
