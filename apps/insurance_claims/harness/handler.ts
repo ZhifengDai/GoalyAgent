@@ -6,11 +6,18 @@ import { reduceSessionEvents } from "../session/facts.ts";
 import { deriveSopState } from "../session/state.ts";
 import { buildSystemPrompt } from "../prompts/system-prompt.ts";
 import { buildExtractionPrompt } from "../prompts/extraction-prompt.ts";
+import type { PendingQuestion } from "../prompts/extraction-prompt.ts";
 import { buildRuntimeContext } from "../prompts/context-builder.ts";
 import { getAllowedTools } from "../tools/tool-registry.ts";
 import { verifyIdentity } from "../tools/verify-identity.ts";
 import { guard } from "./guard.ts";
 import { persist } from "./persist.ts";
+
+// ── Pending question tracker ──────────────────────────────────────────────────
+// Stores the last agent question per session so the extraction LLM can
+// attribute bare values (e.g. "4472") to the field that was asked for.
+
+const pendingQuestions = new Map<string, PendingQuestion>();
 
 // ── Extraction types (output of extraction LLM) ───────────────────────────────
 
@@ -124,7 +131,7 @@ export async function handleMessage(opts: HandleMessageOptions): Promise<RunResu
   const tools  = getAllowedTools(state, sessionId, nowIso);
 
   // ── Step 6: Run conversation loop ───────────────────────────────────────────
-  return runAgentLoop(userMessage, {
+  const result = await runAgentLoop(userMessage, {
     systemPrompt: buildSystemPrompt(),
     runtimeContext,
     messages: [...priorMessages],  // carry history from previous turns
@@ -159,6 +166,40 @@ export async function handleMessage(opts: HandleMessageOptions): Promise<RunResu
       return undefined;
     },
   });
+
+  // ── Step 7: Track pending question for next turn's extraction ───────────────
+  // Parse the last assistant text to detect which identity field was asked for,
+  // so the next extraction call can attribute bare values (e.g. "4472") correctly.
+  const lastAssistantText = result.context.messages
+    .filter(m => m.role === "assistant")
+    .map(m => (typeof m.content === "string" ? m.content : ""))
+    .filter(Boolean)
+    .at(-1) ?? "";
+
+  const detectedField = detectRequestedField(lastAssistantText);
+  if (detectedField) {
+    pendingQuestions.set(sessionId, {
+      question_id: makeEventId(),
+      requested_field: detectedField,
+      subject: "policyholder",
+    });
+  } else {
+    pendingQuestions.delete(sessionId);
+  }
+
+  return result;
+}
+
+// ── Detect which identity field the agent last asked for ──────────────────────
+
+function detectRequestedField(text: string): string | null {
+  const lower = text.toLowerCase();
+  if (/last\s*4\s*digits?\s*of\s*(your\s*)?ssn|ssn\s*last\s*4/.test(lower)) return "ssn_last4";
+  if (/date\s*of\s*birth|date\s*of\s*your\s*birth|\bdob\b/.test(lower))       return "dob";
+  if (/phone\s*number|mobile\s*number/.test(lower))                             return "phone";
+  if (/email\s*address|\bemail\b/.test(lower))                                  return "email";
+  if (/full\s*name|\bname\b/.test(lower))                                       return "name";
+  return null;
 }
 
 // ── Extraction helper ─────────────────────────────────────────────────────────
@@ -171,11 +212,8 @@ async function extractFields(
   nowIso: string,
   signal?: AbortSignal,
 ): Promise<ExtractionResult | null> {
-  const facts = reduceSessionEvents(getEvents(sessionId));
-
-  // Build pending_question from the last assistant message if available.
-  // (Simplified: no pending question tracking in this version.)
-  const extractionPrompt = buildExtractionPrompt(null);
+  const pendingQuestion = pendingQuestions.get(sessionId) ?? null;
+  const extractionPrompt = buildExtractionPrompt(pendingQuestion);
 
   const input = JSON.stringify({
     source_message_id: messageId,
