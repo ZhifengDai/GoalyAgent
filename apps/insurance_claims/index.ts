@@ -2,6 +2,9 @@ import * as readline from "node:readline/promises";
 import { stdin, stdout } from "node:process";
 import { createOpenAIModel } from "../../agent-loop/openai-model.ts";
 import { handleMessage } from "./harness/handler.ts";
+import { getEvents } from "./session/events.ts";
+import { reduceSessionEvents } from "./session/facts.ts";
+import { deriveSopState } from "./session/state.ts";
 import type { Message } from "../../agent-loop/types.ts";
 
 const SESSION_ID = `session_${Date.now()}`;
@@ -28,9 +31,11 @@ async function chat(userInput: string): Promise<void> {
       if (event.type === "text_delta") {
         process.stdout.write(event.delta);
       }
-      if (event.type === "turn_end") {
-        // Accumulate all messages from this turn into history.
-        // The loop appended them to result.context.messages; mirror that here.
+      if (event.type === "tool_execution_start") {
+        process.stderr.write(`\n[TOOL] ${event.call.name} ${JSON.stringify(event.call.arguments)}\n`);
+      }
+      if (event.type === "tool_execution_end") {
+        process.stderr.write(`[TOOL RESULT] ${JSON.stringify(event.result.content).slice(0, 200)}\n`);
       }
     },
   });
@@ -40,6 +45,24 @@ async function chat(userInput: string): Promise<void> {
   // (user message + assistant + tool results). Append everything after priorMessages.
   const newMessages = result.context.messages.slice(history.length);
   history.push(...newMessages);
+
+  // Print session facts to stderr after every turn for debugging.
+  const facts = reduceSessionEvents(getEvents(SESSION_ID));
+  const state = deriveSopState(facts);
+  const debugSnapshot = {
+    phase: state.phase,
+    identity_revision: facts.identity.identity_revision,
+    provided_fields: Object.fromEntries(
+      Object.entries(facts.identity.provided_fields).map(([k, v]) => [k, v?.value])
+    ),
+    pending_clarification: facts.identity.pending_clarification,
+    verification: facts.identity.verification?.status ?? null,
+    verification_failure: facts.identity.verification_failure?.status ?? null,
+    case_hints: facts.case_hints,
+    case_resolution: facts.case_resolution,
+    customer_decisions: facts.customer_decisions,
+  };
+  process.stderr.write(`\n[SESSION FACTS]\n${JSON.stringify(debugSnapshot, null, 2)}\n`);
 
   // End the assistant's turn with a newline if streaming was used.
   const lastAssistant = result.context.messages.findLast(m => m.role === "assistant");
