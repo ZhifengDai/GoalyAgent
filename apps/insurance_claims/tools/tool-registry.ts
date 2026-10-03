@@ -5,8 +5,7 @@ import { reduceSessionEvents } from "../session/facts.ts";
 import { verifyIdentity } from "./verify-identity.ts";
 import { findClaims } from "./find-claims.ts";
 import { selectClaim } from "./select-claim.ts";
-import { getClaimDetails } from "./get-claim-details.ts";
-import { getClaimGuidance } from "./get-claim-guidance.ts";
+import { getClaimInfo } from "./get-claim-info.ts";
 import { recordCustomerDecision } from "./record-customer-decision.ts";
 import { restartClaimSelection } from "./restart-claim-selection.ts";
 import { prepareSummaryEmail, sendSummaryEmail } from "./send-summary-email.ts";
@@ -186,40 +185,22 @@ function makeSelectClaim(sessionId: string): Tool {
   };
 }
 
-function makeGetClaimDetails(sessionId: string): Tool {
+function makeGetClaimInfo(sessionId: string, nowIso: string): Tool {
   return {
-    name: "get_claim_details",
+    name: "get_claim_info",
     description:
-      "Retrieve full details of the selected claim: status, denial reason, " +
-      "documents needed, appeal deadline, and financial amounts. " +
-      "Only available after a claim has been selected.",
+      "Retrieve full claim information: status, denial reason, missing documents, " +
+      "appeal deadline with deadline_status (upcoming/passed/none), financial amounts, " +
+      "and document submission guidance. " +
+      "Call this first whenever the caller asks about their claim. " +
+      "Always use deadline_status from this result — never infer it yourself.",
     parameters: { type: "object", properties: {} },
     validate() {},
     async execute(): Promise<ToolResult> {
-      const result = getClaimDetails(sessionId);
+      const result = getClaimInfo(sessionId, nowIso);
       if (result.status === "not_authorized")  return err("Not authorized");
       if (result.status === "no_case_selected") return err("No claim selected yet");
-      if (result.status === "not_found")        return err("Selected claim not found");
-      return ok(result.claim);
-    },
-  };
-}
-
-function makeGetClaimGuidance(sessionId: string, nowIso: string): Tool {
-  return {
-    name: "get_claim_guidance",
-    description:
-      "Retrieve document requirements, submission guidance, alternative options, " +
-      "and follow-up rules for the selected claim. " +
-      "Includes deadline status based on current time. " +
-      "Use this to answer questions about what to submit and how.",
-    parameters: { type: "object", properties: {} },
-    validate() {},
-    async execute(): Promise<ToolResult> {
-      const result = getClaimGuidance(sessionId, nowIso);
-      if (result.status === "not_authorized")      return err("Not authorized");
-      if (result.status === "no_documents_needed") return ok({ message: "No missing documents for this claim" });
-      return ok(result.guidance);
+      return ok(result.info);
     },
   };
 }
@@ -350,8 +331,7 @@ const ALL_TOOL_MAKERS: Record<AllowedTool, (sessionId: string, nowIso: string) =
   verify_identity:         ()         => { throw new Error("verify_identity is Harness-only"); },
   find_claims:             (s)        => makeFindClaims(s),
   select_claim:            (s)        => makeSelectClaim(s),
-  get_claim_details:       (s)        => makeGetClaimDetails(s),
-  get_claim_guidance:      (s, now)   => makeGetClaimGuidance(s, now),
+  get_claim_info:          (s, now)   => makeGetClaimInfo(s, now),
   restart_claim_selection: (s)        => makeRestartClaimSelection(s),
   record_customer_decision:(s)        => makeRecordCustomerDecision(s),
   prepare_summary_email:   (s)        => makePrepareSummaryEmail(s),

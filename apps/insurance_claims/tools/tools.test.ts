@@ -8,6 +8,7 @@ import { findClaims } from "./find-claims.ts";
 import { selectClaim } from "./select-claim.ts";
 import { getClaimDetails } from "./get-claim-details.ts";
 import { getClaimGuidance } from "./get-claim-guidance.ts";
+import { getClaimInfo } from "./get-claim-info.ts";
 import { recordCustomerDecision } from "./record-customer-decision.ts";
 import { restartClaimSelection } from "./restart-claim-selection.ts";
 import { sendSummaryEmail } from "./send-summary-email.ts";
@@ -412,21 +413,19 @@ test("RESOLVE_INTENT: Ava Lopez has no claims after verification", () => {
 
 // ── PROCESS_CASE: open claim (CL-2102) ───────────────────────────────────────
 
-test("PROCESS_CASE: open claim get_claim_guidance returns no_documents_needed", () => {
+test("PROCESS_CASE: open claim get_claim_info returns deadline_status=none and empty documents", () => {
   const s = newSession();
   seedIdentity(s); // Margaret Chen / P9
   verifyIdentity(s);
   const select = selectClaim(s, "CL-2102", "open auto claim");
   assert.equal(select.status, "ok");
 
-  const details = getClaimDetails(s);
-  assert.equal(details.status, "ok");
-  if (details.status === "ok") {
-    assert.equal(details.claim.status, "open");
-    assert.equal(details.claim.denial_reason, undefined);
+  const result = getClaimInfo(s, new Date().toISOString());
+  assert.equal(result.status, "ok");
+  if (result.status === "ok") {
+    assert.equal(result.info.status, "open");
+    assert.equal(result.info.denial_reason, undefined);
+    assert.deepEqual(result.info.documents_needed, []);
+    assert.equal(result.info.deadline_status, "none");
   }
-
-  // Open claim has no missing documents — guidance returns no_documents_needed.
-  const guidance = getClaimGuidance(s);
-  assert.equal(guidance.status, "no_documents_needed");
 });

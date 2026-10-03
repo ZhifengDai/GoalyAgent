@@ -13,8 +13,7 @@ export type AllowedTool =
   | "verify_identity"
   | "find_claims"
   | "select_claim"
-  | "get_claim_details"
-  | "get_claim_guidance"
+  | "get_claim_info"
   | "restart_claim_selection"
   | "record_customer_decision"
   | "prepare_summary_email"
@@ -71,7 +70,7 @@ export function deriveSopState(facts: SessionFacts): SopState {
   ) {
     return {
       phase: "PROCESS_CASE",
-      allowed_tools: ["get_claim_details", "get_claim_guidance", "restart_claim_selection", "record_customer_decision", "request_human_handoff"],
+      allowed_tools: ["get_claim_info", "restart_claim_selection", "record_customer_decision", "request_human_handoff"],
       missing_identity_fields: [],
       pending_clarification: [],
       party_id: facts.identity.verification.party_id,
@@ -98,7 +97,7 @@ export function deriveSopState(facts: SessionFacts): SopState {
 
   return {
     phase: "VERIFY_ID",
-    allowed_tools: ["record_user_information"],
+    allowed_tools: ["record_user_information", "request_human_handoff"],
     missing_identity_fields: needed > 0
       ? ["name", "dob", "phone", "email", "ssn_last4", "national_id_last4"].filter(f => !collectedFields.includes(f))
       : [],

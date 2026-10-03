@@ -22,7 +22,7 @@ function log(line: string): void {
   logStream.write(`[${ts}] ${line}\n`);
 }
 
-const conversationModel = createOpenAIModel({ model: "gpt-4.1" });
+const conversationModel = createOpenAIModel({});
 
 const history: Message[] = [];
 

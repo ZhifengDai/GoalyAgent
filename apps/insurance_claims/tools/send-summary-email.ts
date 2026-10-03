@@ -33,8 +33,12 @@ export function prepareSummaryEmail(sessionId: string): PrepareSummaryEmailResul
   const facts = reduceSessionEvents(events);
   const state = deriveSopState(facts);
 
-  if (!["POST_PROCESS"].includes(state.phase)) return { status: "not_authorized" };
-  if (facts.customer_decisions.email_summary !== "send") return { status: "no_consent" };
+  if (facts.customer_decisions.email_summary !== "send") {
+    // Check authorization only when there is actual consent to act on.
+    if (!["POST_PROCESS", "DONE"].includes(state.phase)) return { status: "not_authorized" };
+    return { status: "no_consent" };
+  }
+  if (!["POST_PROCESS", "DONE"].includes(state.phase)) return { status: "not_authorized" };
 
   const recipient = facts.customer_decisions.recipient_email ?? "";
   const partyId = facts.identity.verification?.party_id;
@@ -80,9 +84,12 @@ export async function sendSummaryEmail(sessionId: string): Promise<SendSummaryEm
   const facts = reduceSessionEvents(events);
   const state = deriveSopState(facts);
 
-  if (!["POST_PROCESS"].includes(state.phase)) return { status: "not_authorized" };
-  if (facts.customer_decisions.email_summary !== "send") return { status: "no_consent" };
   if (facts.email_sent) return { status: "sent", send_id: "already_sent" };
+  if (facts.customer_decisions.email_summary !== "send") {
+    if (!["POST_PROCESS", "DONE"].includes(state.phase)) return { status: "not_authorized" };
+    return { status: "no_consent" };
+  }
+  if (!["POST_PROCESS", "DONE"].includes(state.phase)) return { status: "not_authorized" };
 
   const prepareResult = prepareSummaryEmail(sessionId);
   if (prepareResult.status !== "ok") return { status: prepareResult.status };
