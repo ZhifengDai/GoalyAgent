@@ -18,15 +18,6 @@ export async function guard(
     return { block: true, reason: "verify_identity is reserved for internal use" };
   }
 
-  // Human handoff is blocked during VERIFY_ID — collect fields first.
-  if (call.name === "request_human_handoff") {
-    const ev = getEvents(sessionId);
-    const f  = reduceSessionEvents(ev);
-    const s  = deriveSopState(f);
-    if (s.phase === "VERIFY_ID") {
-      return { block: true, reason: "Human handoff is not available until identity is verified. Please collect the caller's identity fields first." };
-    }
-  }
 
   const events = getEvents(sessionId);
   const facts  = reduceSessionEvents(events);

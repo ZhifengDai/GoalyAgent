@@ -851,6 +851,9 @@ async function newSession() {
   showError('');
   consentShown = false;
   knownEmail = null;
+  inputEl.disabled = false;
+  inputEl.placeholder = 'Type your message…';
+  sendBtn.disabled = false;
 
   try {
     const r = await fetch(`${API}/api/session`, { method: 'POST' });
@@ -1136,6 +1139,20 @@ async function doSend(text) {
 
         if (evt.type === 'tool_end') {
           if (toolEl && !agentText) { toolEl.remove(); toolEl = null; }
+        }
+
+        if (evt.type === 'human_handoff') {
+          // Insert notice into chat
+          const notice = document.createElement('div');
+          notice.style.cssText = 'text-align:center;color:var(--text-2);font-size:0.8em;margin:12px 0;';
+          notice.textContent = 'You have been connected to a human agent. A representative will be with you shortly.';
+          chatEl.appendChild(notice);
+          chatEl.scrollTop = chatEl.scrollHeight;
+          // Disable input
+          inputEl.disabled = true;
+          inputEl.placeholder = 'Transferred to human agent — chat unavailable';
+          sendBtn.disabled = true;
+          setPhase('HUMAN_HANDOFF');
         }
 
         if (evt.type === 'email_sent') {

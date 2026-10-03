@@ -72,6 +72,11 @@ export async function handleMessage(opts: HandleMessageOptions): Promise<RunResu
 
     finishTurn(_context, message, results) {
       if (message.toolCalls.length === 0 && results.length === 0) return "end";
+      // Stop immediately if session moved to a terminal phase with no tools,
+      // to avoid an OpenAI 400 caused by an empty tools array.
+      const f = reduceSessionEvents(getEvents(sessionId));
+      const s = deriveSopState(f);
+      if (s.phase === "HUMAN_HANDOFF" || s.phase === "DONE") return "end";
       return undefined;
     },
   });

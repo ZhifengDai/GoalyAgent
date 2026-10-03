@@ -177,6 +177,15 @@ async function handleSendMessage(
         if (event.type === "tool_execution_end") {
           session.log(`[TOOL RESULT] ${JSON.stringify(event.result.content).slice(0, 500)}`);
           send({ type: "tool_end", name: event.call.name });
+          // Emit dedicated event when human handoff is requested
+          if (event.call.name === "request_human_handoff" && !event.result.isError) {
+            try {
+              const payload = JSON.parse(event.result.content);
+              if (payload.status === "requested" || payload.status === "already_requested") {
+                send({ type: "human_handoff" });
+              }
+            } catch { /* ignore parse errors */ }
+          }
           // Emit dedicated event when email is successfully sent
           if (event.call.name === "send_summary_email" && !event.result.isError) {
             try {
