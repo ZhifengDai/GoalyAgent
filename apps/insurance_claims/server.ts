@@ -214,6 +214,7 @@ async function handleSendMessage(
       type: "done",
       phase: state.phase,
       collected_fields: fields,
+      known_email: facts.identity.provided_fields["email"]?.value ?? null,
     });
   } catch (err) {
     session.log(`[ERROR] ${err instanceof Error ? err.message : String(err)}`);

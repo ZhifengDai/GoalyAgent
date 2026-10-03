@@ -93,7 +93,34 @@ export function reduceSessionEvents(events: SessionEvent[]): SessionFacts {
 
         // Set caller_role before processing fields so the representative_name
         // branch can fire correctly even on the first event.
-        if (payload.caller_role) facts.identity.caller_role = payload.caller_role;
+        if (payload.caller_role) {
+          const becomingRep = payload.caller_role === "representative" && facts.identity.caller_role !== "representative";
+          facts.identity.caller_role = payload.caller_role;
+          // If the caller just declared themselves a representative, any name already
+          // stored in provided_fields with subject="caller" (from before caller_role
+          // was known) must be migrated to representative_name before policyholder
+          // fields overwrite that slot.
+          if (becomingRep && !facts.identity.representative_name) {
+            const existingName = facts.identity.provided_fields["name"];
+            if (existingName) {
+              // Always migrate an explicit caller-name.
+              // Also migrate a policyholder-subject name when this event is
+              // simultaneously providing a NEW policyholder name — that proves
+              // the existing entry was really the caller's (recorded before
+              // caller_role was known, mapped from "unknown" → "policyholder").
+              const thisEventAddsNewPolicyholderName = payload.accepted_fields.some(
+                f => f.field === "name" &&
+                     (f.subject === "policyholder" || f.subject === "unknown") &&
+                     f.operation !== "withdraw" &&
+                     f.normalized_value !== existingName.value,
+              );
+              if (existingName.subject === "caller" || thisEventAddsNewPolicyholderName) {
+                facts.identity.representative_name = existingName.value;
+                delete facts.identity.provided_fields["name"];
+              }
+            }
+          }
+        }
 
         for (const obs of payload.accepted_fields) {
           if (obs.subject === "other") continue;

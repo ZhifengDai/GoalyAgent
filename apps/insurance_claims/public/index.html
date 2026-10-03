@@ -789,6 +789,7 @@ header {
     <div id="empty">
       <svg width="48" height="48" viewBox="0 0 24 24" fill="currentColor"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z"/></svg>
       <p>Start by telling the agent your name and why you're calling. Identity verification is required before any claim details can be shared.</p>
+      <p style="margin-top:8px;font-size:0.85em;color:#888;">Calling on behalf of someone else? Please mention that you are a representative and state the policyholder's name.</p>
     </div>
   </div>
 
@@ -849,6 +850,7 @@ async function newSession() {
   setPhase('VERIFY_ID');
   showError('');
   consentShown = false;
+  knownEmail = null;
 
   try {
     const r = await fetch(`${API}/api/session`, { method: 'POST' });
@@ -983,6 +985,7 @@ function showError(msg) {
 
 // ── Email consent UI ───────────────────────────────────────────────────────────
 let consentShown = false;
+let knownEmail = null;
 
 function showEmailConsentBar() {
   if (consentShown) return;
@@ -1025,10 +1028,10 @@ let _activeConsentBar = null;
 
 function openEmailInputModal(bar) {
   _activeConsentBar = bar ?? null;
-  emailAddressField.value = '';
-  emailInputConfirm.disabled = true;
+  emailAddressField.value = knownEmail ?? '';
+  emailInputConfirm.disabled = !emailAddressField.value.includes('@');
   emailInputBackdrop.classList.add('open');
-  setTimeout(() => emailAddressField.focus(), 50);
+  setTimeout(() => { emailAddressField.focus(); emailAddressField.select(); }, 50);
 }
 
 function closeEmailInputModal() {
@@ -1147,6 +1150,7 @@ async function doSend(text) {
             agentDiv.remove();
           }
           if (evt.phase) setPhase(evt.phase);
+          if (evt.known_email) knownEmail = evt.known_email;
           if (toolEl) { toolEl.remove(); toolEl = null; }
           if (evt.phase === 'PROCESS_CASE' && !consentShown &&
               agentText.toLowerCase().includes('email')) {

@@ -73,6 +73,10 @@ If the caller identifies as a representative (calling on behalf of a policyholde
 - Also collect the CALLER's own FULL name (first + last) with subject "caller" and field "name". \
   Whenever the caller states or corrects their full name, call record_user_information immediately \
   with subject "caller", field "name", operation "provide" or "correct".
+- CRITICAL: When the caller introduces themselves AND names the policyholder in the same message \
+  (e.g. "I am David Chen, calling on behalf of Margaret Chen"), you MUST include BOTH in the \
+  SAME accepted_fields array: the caller's name with subject "caller" AND the policyholder's name \
+  with subject "policyholder". Never omit the caller's own name from the tool call.
 - Both are required. If representative_name_collected is false in the Runtime Context, \
   ask for the caller's own full name before verification can proceed.
 - If verification fails with "unauthorized_representative", inform the caller that \
