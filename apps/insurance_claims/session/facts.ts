@@ -53,6 +53,7 @@ export interface SessionFacts {
     status: "unresolved" | "resolved";
     selected_case_id: string | null;
     selection_basis: string | null;
+    discussed_cases: string[];
   };
   customer_decisions: {
     email_summary: "unknown" | "send" | "skip";
@@ -75,7 +76,7 @@ export function reduceSessionEvents(events: SessionEvent[]): SessionFacts {
       verification_failure: null,
     },
     case_hints: null,
-    case_resolution: { status: "unresolved", selected_case_id: null, selection_basis: null },
+    case_resolution: { status: "unresolved", selected_case_id: null, selection_basis: null, discussed_cases: [] },
     customer_decisions: { email_summary: "unknown" },
     email_sent: false,
     human_handoff: null,
@@ -194,10 +195,24 @@ export function reduceSessionEvents(events: SessionEvent[]): SessionFacts {
       }
 
       case "claim_selected": {
+        const caseId = event.payload.case_id;
         facts.case_resolution = {
           status: "resolved",
-          selected_case_id: event.payload.case_id,
+          selected_case_id: caseId,
           selection_basis: event.payload.selection_basis,
+          discussed_cases: facts.case_resolution.discussed_cases.includes(caseId)
+            ? facts.case_resolution.discussed_cases
+            : [...facts.case_resolution.discussed_cases, caseId],
+        };
+        break;
+      }
+
+      case "claim_selection_reset": {
+        facts.case_resolution = {
+          status: "unresolved",
+          selected_case_id: null,
+          selection_basis: null,
+          discussed_cases: facts.case_resolution.discussed_cases,
         };
         break;
       }

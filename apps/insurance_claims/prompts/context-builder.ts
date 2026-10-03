@@ -81,9 +81,10 @@ export function buildRuntimeContext(
               year: facts.case_hints.year ?? null,
             }
           : null,
+        previously_discussed_cases: facts.case_resolution.discussed_cases,
         case_resolution: {
           status: "unresolved",
-          instruction: "Use remembered hints to query and identify the target claim.",
+          instruction: "Use remembered hints to query and identify the target claim. If previously_discussed_cases is non-empty, the caller wants to discuss a different claim.",
         },
       };
 
@@ -111,6 +112,7 @@ export function buildRuntimeContext(
         case_resolution: {
           status: "resolved",
           selected_case_id: facts.case_resolution.selected_case_id,
+          discussed_cases: facts.case_resolution.discussed_cases,
         },
         email_decision: facts.customer_decisions.email_summary,
         recipient_email: facts.customer_decisions.recipient_email ?? null,

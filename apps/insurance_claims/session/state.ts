@@ -15,6 +15,7 @@ export type AllowedTool =
   | "select_claim"
   | "get_claim_details"
   | "get_claim_guidance"
+  | "restart_claim_selection"
   | "record_customer_decision"
   | "prepare_summary_email"
   | "send_summary_email"
@@ -70,7 +71,7 @@ export function deriveSopState(facts: SessionFacts): SopState {
   ) {
     return {
       phase: "PROCESS_CASE",
-      allowed_tools: ["get_claim_details", "get_claim_guidance", "record_customer_decision", "request_human_handoff"],
+      allowed_tools: ["get_claim_details", "get_claim_guidance", "restart_claim_selection", "record_customer_decision", "request_human_handoff"],
       missing_identity_fields: [],
       pending_clarification: [],
       party_id: facts.identity.verification.party_id,

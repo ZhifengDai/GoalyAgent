@@ -8,6 +8,7 @@ import { selectClaim } from "./select-claim.ts";
 import { getClaimDetails } from "./get-claim-details.ts";
 import { getClaimGuidance } from "./get-claim-guidance.ts";
 import { recordCustomerDecision } from "./record-customer-decision.ts";
+import { restartClaimSelection } from "./restart-claim-selection.ts";
 import { prepareSummaryEmail, sendSummaryEmail } from "./send-summary-email.ts";
 import { requestHumanHandoff } from "./request-human-handoff.ts";
 
@@ -223,6 +224,30 @@ function makeGetClaimGuidance(sessionId: string, nowIso: string): Tool {
   };
 }
 
+function makeRestartClaimSelection(sessionId: string): Tool {
+  return {
+    name: "restart_claim_selection",
+    description:
+      "Reset the current claim selection and return to claim search. " +
+      "Use when the caller wants to discuss a different claim in the same session. " +
+      "Previously discussed claims are remembered and will be included in the email summary.",
+    parameters: {
+      type: "object",
+      properties: {
+        reason: { type: "string", description: "Why the caller wants to switch claims" },
+      },
+      required: ["reason"],
+    },
+    validate(args) { requireString(args, "reason"); },
+    async execute(args): Promise<ToolResult> {
+      const reason = requireString(args, "reason");
+      const result = restartClaimSelection(sessionId, reason);
+      if (result.status === "not_authorized") return err("Not authorized: only available in PROCESS_CASE");
+      return ok(result);
+    },
+  };
+}
+
 function makeRecordCustomerDecision(sessionId: string): Tool {
   return {
     name: "record_customer_decision",
@@ -327,6 +352,7 @@ const ALL_TOOL_MAKERS: Record<AllowedTool, (sessionId: string, nowIso: string) =
   select_claim:            (s)        => makeSelectClaim(s),
   get_claim_details:       (s)        => makeGetClaimDetails(s),
   get_claim_guidance:      (s, now)   => makeGetClaimGuidance(s, now),
+  restart_claim_selection: (s)        => makeRestartClaimSelection(s),
   record_customer_decision:(s)        => makeRecordCustomerDecision(s),
   prepare_summary_email:   (s)        => makePrepareSummaryEmail(s),
   send_summary_email:      (s)        => makeSendSummaryEmail(s),

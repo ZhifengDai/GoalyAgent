@@ -65,6 +65,10 @@ export interface ClaimSelectedPayload {
   selection_basis: string;
 }
 
+export interface ClaimSelectionResetPayload {
+  reason: string;
+}
+
 export interface CustomerDecisionPayload {
   source_message_id: string;
   topic: "email_summary";
@@ -98,6 +102,7 @@ export type SessionEvent = {
   | { type: "identity_verification_failed";        payload: IdentityVerificationFailedPayload }
   | { type: "identity_verification_invalidated";   payload: IdentityVerificationInvalidatedPayload }
   | { type: "claim_selected";                      payload: ClaimSelectedPayload }
+  | { type: "claim_selection_reset";               payload: ClaimSelectionResetPayload }
   | { type: "customer_decision_recorded";          payload: CustomerDecisionPayload }
   | { type: "email_sent";                          payload: EmailSentPayload }
   | { type: "human_handoff_requested";             payload: HumanHandoffRequestedPayload }
