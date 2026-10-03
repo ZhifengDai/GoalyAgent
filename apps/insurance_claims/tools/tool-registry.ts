@@ -6,6 +6,7 @@ import { verifyIdentity } from "./verify-identity.ts";
 import { findClaims } from "./find-claims.ts";
 import { selectClaim } from "./select-claim.ts";
 import { getClaimInfo } from "./get-claim-info.ts";
+import { confirmNoClaims } from "./confirm-no-claims.ts";
 import { recordCustomerDecision } from "./record-customer-decision.ts";
 import { restartClaimSelection } from "./restart-claim-selection.ts";
 import { prepareSummaryEmail, sendSummaryEmail } from "./send-summary-email.ts";
@@ -205,6 +206,30 @@ function makeGetClaimInfo(sessionId: string, nowIso: string): Tool {
   };
 }
 
+function makeConfirmNoClaims(sessionId: string): Tool {
+  return {
+    name: "confirm_no_claims",
+    description:
+      "Confirm that no claims were found for the verified caller. " +
+      "Call this when find_claims returns no results so the session can " +
+      "proceed to offer an email summary and close gracefully.",
+    parameters: {
+      type: "object",
+      properties: {
+        reason: { type: "string", description: "Brief description, e.g. 'No claims found for this account'" },
+      },
+      required: ["reason"],
+    },
+    validate(args) { requireString(args, "reason"); },
+    async execute(args): Promise<ToolResult> {
+      const reason = requireString(args, "reason");
+      const result = confirmNoClaims(sessionId, reason);
+      if (result.status === "not_authorized") return err("Not authorized: only available in RESOLVE_INTENT");
+      return ok(result);
+    },
+  };
+}
+
 function makeRestartClaimSelection(sessionId: string): Tool {
   return {
     name: "restart_claim_selection",
@@ -331,6 +356,7 @@ const ALL_TOOL_MAKERS: Record<AllowedTool, (sessionId: string, nowIso: string) =
   verify_identity:         ()         => { throw new Error("verify_identity is Harness-only"); },
   find_claims:             (s)        => makeFindClaims(s),
   select_claim:            (s)        => makeSelectClaim(s),
+  confirm_no_claims:       (s)        => makeConfirmNoClaims(s),
   get_claim_info:          (s, now)   => makeGetClaimInfo(s, now),
   restart_claim_selection: (s)        => makeRestartClaimSelection(s),
   record_customer_decision:(s)        => makeRecordCustomerDecision(s),

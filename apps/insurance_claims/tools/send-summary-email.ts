@@ -49,7 +49,17 @@ export function prepareSummaryEmail(sessionId: string): PrepareSummaryEmailResul
     .map(id => ALL_CLAIMS.find(c => c.case_id === id && c.party_id === partyId))
     .filter(Boolean) as typeof ALL_CLAIMS;
 
-  if (claims.length === 0) return { status: "not_authorized" };
+  if (claims.length === 0 && !facts.case_resolution.no_claims) return { status: "not_authorized" };
+
+  if (facts.case_resolution.no_claims) {
+    const draft: EmailDraft = {
+      discussed_cases: [],
+      recipient_email: recipient,
+      subject: "Claims Support Session Summary",
+      body: "We searched your account and found no active claims on file at this time.\n\nIf you believe this is an error, please contact us or visit your policy portal.",
+    };
+    return { status: "ok", draft };
+  }
 
   const claimBlocks = claims.map((claim, i) => {
     const lines = [

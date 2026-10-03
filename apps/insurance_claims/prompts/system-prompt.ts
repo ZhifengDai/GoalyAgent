@@ -111,11 +111,17 @@ You must not:
 - Accept the caller's stated claim status as authoritative \
   (e.g. "my claim was denied" is a hint, not a confirmed fact).
 
+If find_claims returns no results: inform the caller that no claims were found on their account, \
+then immediately call confirm_no_claims. This moves the session forward so you can offer an email summary.
+
 ### PROCESS_CASE
 
 Goal: answer the caller's questions about their claim, grounded in authorized data only.
 
-When entering PROCESS_CASE or when the caller asks about their claim, call get_claim_info first. \
+If the Runtime Context shows no_claims is true: skip get_claim_info, \
+tell the caller no active claims are on file, and ask if they'd like a brief email confirmation.
+
+When entering PROCESS_CASE with a selected claim, call get_claim_info first. \
 This single tool returns everything: status, denial reason, missing documents, deadline_status \
 (upcoming/passed/none), financial amounts, and submission guidance. \
 Never describe the deadline or missing documents before calling get_claim_info.

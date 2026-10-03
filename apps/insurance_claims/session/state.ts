@@ -13,6 +13,7 @@ export type AllowedTool =
   | "verify_identity"
   | "find_claims"
   | "select_claim"
+  | "confirm_no_claims"
   | "get_claim_info"
   | "restart_claim_selection"
   | "record_customer_decision"
@@ -63,18 +64,23 @@ export function deriveSopState(facts: SessionFacts): SopState {
     };
   }
 
-  // PROCESS_CASE: case selected, identity verified, email decision not yet made.
+  // PROCESS_CASE: case selected (or no claims), identity verified, email decision not yet made.
   if (
     facts.case_resolution.status === "resolved" &&
     facts.identity.verification
   ) {
+    const tools: AllowedTool[] = facts.case_resolution.no_claims
+      ? ["record_customer_decision", "request_human_handoff"]
+      : ["get_claim_info", "restart_claim_selection", "record_customer_decision", "request_human_handoff"];
     return {
       phase: "PROCESS_CASE",
-      allowed_tools: ["get_claim_info", "restart_claim_selection", "record_customer_decision", "request_human_handoff"],
+      allowed_tools: tools,
       missing_identity_fields: [],
       pending_clarification: [],
       party_id: facts.identity.verification.party_id,
-      next_requirement: "解答案件问题，完成后询问是否发送摘要邮件",
+      next_requirement: facts.case_resolution.no_claims
+        ? "无案件，询问是否发送邮件"
+        : "解答案件问题，完成后询问是否发送摘要邮件",
     };
   }
 
@@ -82,7 +88,7 @@ export function deriveSopState(facts: SessionFacts): SopState {
   if (facts.identity.verification) {
     return {
       phase: "RESOLVE_INTENT",
-      allowed_tools: ["find_claims", "select_claim", "request_human_handoff"],
+      allowed_tools: ["find_claims", "select_claim", "confirm_no_claims", "request_human_handoff"],
       missing_identity_fields: [],
       pending_clarification: [],
       party_id: facts.identity.verification.party_id,
