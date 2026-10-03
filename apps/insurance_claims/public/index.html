@@ -602,6 +602,103 @@ header {
   align-self: flex-start;
 }
 .email-card-preview-btn:hover { opacity: 0.85; }
+
+/* ── Email consent action bar ── */
+.consent-bar {
+  display: flex;
+  gap: 10px;
+  align-self: flex-start;
+  margin: 4px 0 8px 0;
+  padding: 0 4px;
+}
+.consent-btn {
+  padding: 9px 22px;
+  border-radius: 10px;
+  border: none;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: opacity .15s;
+}
+.consent-btn:hover { opacity: 0.85; }
+.consent-btn.yes { background: var(--accent); color: white; }
+.consent-btn.skip { background: var(--bg); color: var(--text-2); border: 1px solid var(--border); }
+
+/* ── Email address input modal ── */
+#email-input-backdrop {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.45);
+  z-index: 200;
+  align-items: center;
+  justify-content: center;
+  padding: 24px 16px;
+}
+#email-input-backdrop.open { display: flex; }
+#email-input-modal {
+  background: var(--surface);
+  border-radius: 16px;
+  width: 100%;
+  max-width: 400px;
+  padding: 28px 24px 24px;
+  box-shadow: 0 8px 40px rgba(0,0,0,0.18);
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+#email-input-modal h3 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+#email-input-modal p {
+  margin: 0;
+  font-size: 13px;
+  color: var(--text-2);
+  line-height: 1.5;
+}
+#email-address-field {
+  width: 100%;
+  padding: 10px 14px;
+  border: 1.5px solid var(--border);
+  border-radius: 10px;
+  font-size: 14px;
+  background: var(--bg);
+  color: var(--text);
+  box-sizing: border-box;
+  outline: none;
+  transition: border-color .15s;
+}
+#email-address-field:focus { border-color: var(--accent); }
+.email-input-actions {
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+}
+.email-input-cancel {
+  padding: 9px 18px;
+  border-radius: 9px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-2);
+  font-size: 14px;
+  cursor: pointer;
+}
+.email-input-confirm {
+  padding: 9px 22px;
+  border-radius: 9px;
+  border: none;
+  background: var(--accent);
+  color: white;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+}
+.email-input-confirm:disabled { opacity: 0.5; cursor: default; }
+.email-input-cancel:hover { background: var(--bg); }
+.email-input-confirm:not(:disabled):hover { opacity: 0.85; }
 </style>
 
 <!-- Email preview modal -->
@@ -624,6 +721,18 @@ header {
       </div>
     </div>
     <div id="email-modal-body"></div>
+  </div>
+</div>
+
+<!-- Email address input modal -->
+<div id="email-input-backdrop">
+  <div id="email-input-modal">
+    <h3>Send summary email</h3>
+    <p>Enter the email address where you'd like to receive a summary of this session.</p>
+    <input id="email-address-field" type="email" placeholder="you@example.com" autocomplete="email" />
+    <div class="email-input-actions">
+      <button class="email-input-confirm" id="email-input-confirm" disabled>Send summary</button>
+    </div>
   </div>
 </div>
 
@@ -739,6 +848,7 @@ async function newSession() {
   emptyEl.hidden = false;
   setPhase('VERIFY_ID');
   showError('');
+  consentShown = false;
 
   try {
     const r = await fetch(`${API}/api/session`, { method: 'POST' });
@@ -871,14 +981,106 @@ function showError(msg) {
   errBanner.style.display = msg ? 'block' : 'none';
 }
 
+// ── Email consent UI ───────────────────────────────────────────────────────────
+let consentShown = false;
+
+function showEmailConsentBar() {
+  if (consentShown) return;
+  consentShown = true;
+
+  const bar = document.createElement('div');
+  bar.className = 'consent-bar';
+  bar.id = 'consent-bar';
+
+  const yesBtn = document.createElement('button');
+  yesBtn.className = 'consent-btn yes';
+  yesBtn.textContent = 'Yes, send me a summary';
+
+  const skipBtn = document.createElement('button');
+  skipBtn.className = 'consent-btn skip';
+  skipBtn.textContent = 'No thanks';
+
+  yesBtn.onclick = () => { bar.style.display = 'none'; openEmailInputModal(bar); };
+  skipBtn.onclick = () => { bar.remove(); sendText('No thanks, skip the email.'); };
+
+  bar.appendChild(yesBtn);
+  bar.appendChild(skipBtn);
+  chatEl.appendChild(bar);
+  scrollBottom();
+}
+
+// ── Email input modal ──────────────────────────────────────────────────────────
+const emailInputBackdrop = document.getElementById('email-input-backdrop');
+const emailAddressField  = document.getElementById('email-address-field');
+const emailInputConfirm  = document.getElementById('email-input-confirm');
+
+emailAddressField.addEventListener('input', () => {
+  emailInputConfirm.disabled = !emailAddressField.value.trim().includes('@');
+});
+emailAddressField.addEventListener('keydown', e => {
+  if (e.key === 'Enter' && !emailInputConfirm.disabled) confirmEmail();
+});
+
+let _activeConsentBar = null;
+
+function openEmailInputModal(bar) {
+  _activeConsentBar = bar ?? null;
+  emailAddressField.value = '';
+  emailInputConfirm.disabled = true;
+  emailInputBackdrop.classList.add('open');
+  setTimeout(() => emailAddressField.focus(), 50);
+}
+
+function closeEmailInputModal() {
+  emailInputBackdrop.classList.remove('open');
+}
+
+function dismissEmailInputModal() {
+  closeEmailInputModal();
+  // Restore the Yes/Skip bar so the user can reconsider.
+  if (_activeConsentBar) {
+    _activeConsentBar.style.display = 'flex';
+    _activeConsentBar = null;
+  } else {
+    consentShown = false;
+  }
+}
+
+function confirmEmail() {
+  const addr = emailAddressField.value.trim();
+  if (!addr) return;
+  _activeConsentBar = null;
+  closeEmailInputModal();
+  sendText(`Yes, please send the summary to ${addr}.`);
+}
+
+emailInputConfirm.onclick = confirmEmail;
+emailInputBackdrop.addEventListener('click', e => {
+  if (e.target === emailInputBackdrop) dismissEmailInputModal();
+});
+
 // ── Send ───────────────────────────────────────────────────────────────────────
+async function sendText(text) {
+  if (!text) return;
+  inputEl.value = '';
+  inputEl.style.height = 'auto';
+  await doSend(text);
+}
+
 async function send() {
   if (sending || !sessionId) return;
   const text = inputEl.value.trim();
   if (!text) return;
-
   inputEl.value = '';
   inputEl.style.height = 'auto';
+  await doSend(text);
+}
+
+async function doSend(text) {
+  if (sending || !sessionId) return;
+  // Remove any pending consent bar when user sends a message.
+  const existingBar = document.getElementById('consent-bar');
+  if (existingBar) { existingBar.remove(); consentShown = false; }
   sending = true;
   sendBtn.disabled = true;
   showError('');
@@ -946,6 +1148,10 @@ async function send() {
           }
           if (evt.phase) setPhase(evt.phase);
           if (toolEl) { toolEl.remove(); toolEl = null; }
+          if (evt.phase === 'PROCESS_CASE' && !consentShown &&
+              agentText.toLowerCase().includes('email')) {
+            showEmailConsentBar();
+          }
         }
 
         if (evt.type === 'error') {
