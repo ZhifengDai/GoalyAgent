@@ -29,10 +29,15 @@ export async function persist(
       .filter(f => !facts.identity.pending_clarification.includes(f as never))
       .length;
 
+    // For representatives, also require their own name before triggering verify.
+    const repReady = facts.identity.caller_role !== "representative" ||
+                     !!facts.identity.representative_name;
+
     if (
       !facts.identity.verification &&
       usableFieldCount >= 3 &&
-      facts.identity.identity_revision > 0
+      facts.identity.identity_revision > 0 &&
+      repReady
     ) {
       verifyIdentity(sessionId);
     }
