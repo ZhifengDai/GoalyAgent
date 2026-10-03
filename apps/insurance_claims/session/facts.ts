@@ -29,7 +29,7 @@ export interface CaseHintFact {
 }
 
 export interface VerificationFailureFact {
-  status: "insufficient_information" | "no_match" | "ambiguous" | "conflict";
+  status: "insufficient_information" | "no_match" | "ambiguous" | "conflict" | "unauthorized_representative";
   blocking_conflicts: string[];
   identity_revision: number;
 }
@@ -39,6 +39,7 @@ export interface SessionFacts {
   identity: {
     identity_revision: number;
     caller_role?: "policyholder" | "representative";
+    representative_name?: string;
     policy_number?: string;
     provided_fields: Partial<Record<IdentityField, ProviderFieldFact>>;
     // Fields blocked from verification until clarification is resolved.
@@ -90,6 +91,16 @@ export function reduceSessionEvents(events: SessionEvent[]): SessionFacts {
 
         for (const obs of payload.accepted_fields) {
           if (obs.subject === "unknown" || obs.subject === "other") continue;
+          // Caller's own name when they are a representative — stored separately.
+          if (obs.subject === "caller" && obs.field === "name" && facts.identity.caller_role === "representative") {
+            if (obs.operation === "withdraw") {
+              delete facts.identity.representative_name;
+            } else {
+              facts.identity.representative_name = obs.normalized_value;
+            }
+            identityChanged = true;
+            continue;
+          }
           const existing = facts.identity.provided_fields[obs.field];
           const nextVersion = (existing?.version ?? 0) + 1;
 

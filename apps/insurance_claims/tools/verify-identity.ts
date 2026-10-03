@@ -8,6 +8,16 @@ const require = createRequire(import.meta.url);
 const POLICYHOLDERS: Policyholder[] = require(
   fileURLToPath(new URL("../fixtures/policyholders.json", import.meta.url))
 );
+const REPRESENTATIVES: Representative[] = require(
+  fileURLToPath(new URL("../fixtures/representatives.json", import.meta.url))
+);
+
+interface Representative {
+  rep_name: string;
+  relationship: string;
+  buyer_name: string;
+  buyer_party_id: string;
+}
 
 interface Policyholder {
   party_id: string;
@@ -28,6 +38,7 @@ export type VerifyIdentityResult =
   | { status: "insufficient_information" }
   | { status: "no_match" }
   | { status: "ambiguous" }
+  | { status: "unauthorized_representative" }
   | { status: "conflict"; detail: string };
 
 const MINIMUM_MATCHES = 3;
@@ -177,6 +188,26 @@ export function verifyIdentity(sessionId: string): VerifyIdentityResult {
   }
 
   const winner = qualified[0]!;
+
+  // Representative check: if caller is acting on behalf of the policyholder,
+  // their own name must be listed in representatives.json for this party_id.
+  if (facts.identity.caller_role === "representative") {
+    const repName = facts.identity.representative_name;
+    if (!repName) {
+      // Rep name not yet collected — not enough info yet.
+      appendVerificationFailed(sessionId, events.length, identity_revision, "insufficient_information");
+      return { status: "insufficient_information" };
+    }
+    const authorized = REPRESENTATIVES.some(
+      r => r.buyer_party_id === winner.holder.party_id &&
+           normalizeName(r.rep_name) === normalizeName(repName)
+    );
+    if (!authorized) {
+      appendVerificationFailed(sessionId, events.length, identity_revision, "unauthorized_representative" as never);
+      return { status: "unauthorized_representative" };
+    }
+  }
+
   const fieldVersions: Partial<Record<IdentityField, number>> = {};
   for (const field of winner.matched) {
     const fact = facts.identity.provided_fields[field];

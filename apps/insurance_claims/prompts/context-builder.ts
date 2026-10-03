@@ -36,6 +36,8 @@ export function buildRuntimeContext(
                   ? "No matching record found. The caller may not be the policyholder or fields may be incorrect."
                   : failure.status === "ambiguous"
                   ? "Multiple potential matches found. Collect additional fields to disambiguate."
+                  : failure.status === "unauthorized_representative"
+                  ? "Caller's name is not listed as an authorized representative for this account."
                   : null,
               }
             : null,
@@ -45,6 +47,9 @@ export function buildRuntimeContext(
           additional_matches_required: verificationAttempted
             ? 0
             : Math.max(0, 3 - collectedCount),
+          representative_name_collected: facts.identity.caller_role === "representative"
+            ? (facts.identity.representative_name ?? null) !== null
+            : undefined,
         },
         // Surface remembered hints so the model knows not to re-ask.
         remembered_hints: facts.case_hints
