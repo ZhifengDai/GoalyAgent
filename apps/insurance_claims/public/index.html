@@ -1169,8 +1169,8 @@ async function doSend(text) {
           if (evt.phase) setPhase(evt.phase);
           if (evt.known_email) knownEmail = evt.known_email;
           if (toolEl) { toolEl.remove(); toolEl = null; }
-          if (evt.phase === 'PROCESS_CASE' && !consentShown &&
-              agentText.toLowerCase().includes('email')) {
+          if ((evt.phase === 'PROCESS_CASE' || evt.phase === 'POST_PROCESS') &&
+              !consentShown && agentText.toLowerCase().includes('email')) {
             showEmailConsentBar();
           }
         }

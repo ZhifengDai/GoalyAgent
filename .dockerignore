@@ -1,0 +1,7 @@
+vendor/
+node_modules/
+apps/insurance_claims/logs/
+.env
+.env.*
+.DS_Store
+*.log

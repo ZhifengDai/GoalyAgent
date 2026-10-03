@@ -129,6 +129,9 @@ export function createOpenAIModel(options: OpenAIModelOptions = {}): ModelFn {
         strict: false,
       },
     }));
+    const timeoutMs = Number(process.env.OPENAI_TIMEOUT_MS ?? 60_000);
+    const timeout = AbortSignal.timeout(timeoutMs);
+    const combinedSignal = signal ? AbortSignal.any([signal, timeout]) : timeout;
     const response = await fetchImpl(endpoint, {
       method: "POST",
       headers: {
@@ -144,7 +147,7 @@ export function createOpenAIModel(options: OpenAIModelOptions = {}): ModelFn {
         stream: false,
         store: false,
       }),
-      signal,
+      signal: combinedSignal,
     });
     if (!response.ok) {
       // API response bodies can contain sensitive request fragments. Keep errors concise.

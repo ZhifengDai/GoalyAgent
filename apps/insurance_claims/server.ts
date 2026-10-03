@@ -233,49 +233,6 @@ async function handleSendMessage(
   res.end();
 }
 
-// POST /api/session/:id/start → SSE: agent greeting (trigger not shown to user)
-async function handleStartSession(res: http.ServerResponse, sessionId: string) {
-  const session = getOrCreateSession(sessionId);
-
-  res.writeHead(200, {
-    "Content-Type": "text/event-stream",
-    "Cache-Control": "no-cache",
-    "Access-Control-Allow-Origin": "*",
-  });
-
-  function send(data: unknown) {
-    res.write(`data: ${JSON.stringify(data)}\n\n`);
-  }
-
-  const nowIso = new Date().toISOString();
-
-  try {
-    const result = await handleMessage({
-      sessionId,
-      userMessage: "[call_started]",
-      model,
-      priorMessages: [],
-      nowIso,
-      emit: async (event) => {
-        if (event.type === "text_delta") {
-          send({ type: "text_delta", delta: event.delta });
-        }
-      },
-    });
-
-    const newMessages = result.context.messages.slice(session.history.length);
-    session.history.push(...newMessages);
-
-    const facts = reduceSessionEvents(getEvents(sessionId));
-    const state = deriveSopState(facts);
-    send({ type: "done", phase: state.phase });
-  } catch (err) {
-    send({ type: "error", message: err instanceof Error ? err.message : "Unknown error" });
-  }
-
-  res.end();
-}
-
 // GET /api/session/:id/state → { phase, collected_fields }
 function handleGetState(res: http.ServerResponse, sessionId: string) {
   const facts = reduceSessionEvents(getEvents(sessionId));
