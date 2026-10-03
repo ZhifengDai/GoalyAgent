@@ -89,6 +89,10 @@ export function reduceSessionEvents(events: SessionEvent[]): SessionFacts {
         const { payload } = event;
         let identityChanged = false;
 
+        // Set caller_role before processing fields so the representative_name
+        // branch can fire correctly even on the first event.
+        if (payload.caller_role) facts.identity.caller_role = payload.caller_role;
+
         for (const obs of payload.accepted_fields) {
           if (obs.subject === "unknown" || obs.subject === "other") continue;
           // Caller's own name when they are a representative — stored separately.
@@ -134,7 +138,6 @@ export function reduceSessionEvents(events: SessionEvent[]): SessionFacts {
           );
         }
 
-        if (payload.caller_role) facts.identity.caller_role = payload.caller_role;
         if (payload.policy_number) facts.identity.policy_number = payload.policy_number;
         if (payload.case_hints) {
           facts.case_hints = { ...payload.case_hints, source_message_id: payload.source_message_id };
