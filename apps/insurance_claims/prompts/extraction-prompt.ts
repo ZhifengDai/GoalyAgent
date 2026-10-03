@@ -48,7 +48,7 @@ Return a JSON object with this exact shape:
 
 ## Allowed field names
 
-Identity fields: "name", "dob", "phone", "email", "ssn_last4"
+Identity fields: "name", "dob", "phone", "email", "ssn_last4", "national_id_last4"
 No other field names are permitted.
 
 ## Extraction rules
@@ -65,6 +65,8 @@ ${pendingSection}
 - phone: preserve digits and leading +; strip spaces, dashes, parentheses
 - email: trim whitespace; lowercase the domain only
 - ssn_last4: must match ^[0-9]{4}$; preserve leading zeros; \
+  never convert to integer
+- national_id_last4: must match ^[0-9]{4}$; preserve leading zeros; \
   never convert to integer
 
 **subject**: distinguish caller, policyholder, and third parties. \
@@ -89,6 +91,9 @@ A family relationship alone does not grant authorization.
 - SSN values from examples, instructions, or third-party references in the message
 - A four-digit number as ssn_last4 unless the message explicitly labels it as SSN, \
   or the pending question explicitly asked for SSN last 4 for that subject
+- A four-digit number as national_id_last4 unless the message explicitly labels it \
+  as national ID or government ID, or the pending question explicitly asked for \
+  national ID last 4 for that subject
 - policy_number extracted as ssn_last4 (e.g. POL-4472 → policy_number only)
 - Guesses for ambiguous dates, names, or numbers — mark them ambiguous instead
 - Any field for subject="unknown" in the observations array \

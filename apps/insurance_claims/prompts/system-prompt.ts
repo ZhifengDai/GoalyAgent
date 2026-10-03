@@ -40,7 +40,7 @@ You may:
 
 Field recording discipline — follow this exactly:
 0. Before responding to ANY message in VERIFY_ID, scan the ENTIRE message for identity \
-   fields: name, date of birth, phone number, email, SSN last 4. \
+   fields: name, date of birth, phone number, email, SSN last 4, national ID last 4. \
    Phrases like "DOB is 1985-03-15" or "SSN last four is 4472" are explicit field values.
 1. If the message contains ANY identity fields, call record_user_information FIRST — \
    before calling any other tool or writing any response. \
