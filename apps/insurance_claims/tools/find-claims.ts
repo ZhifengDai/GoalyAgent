@@ -52,7 +52,8 @@ export function findClaims(
   }
 
   const partyId = facts.identity.verification.party_id;
-  let claims = ALL_CLAIMS.filter(c => c.party_id === partyId);
+  const discussed = new Set(facts.case_resolution.discussed_cases);
+  let claims = ALL_CLAIMS.filter(c => c.party_id === partyId && !discussed.has(c.case_id));
 
   // Apply optional filters derived from case hints.
   if (filter?.case_type) {

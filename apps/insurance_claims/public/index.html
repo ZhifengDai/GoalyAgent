@@ -1,0 +1,988 @@
+<!doctype html>
+<title>Claims Support</title>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=Source+Serif+4:ital,wght@0,400;0,600;1,400&display=swap">
+<style>
+/* Layout: fixed header + scrollable chat + fixed input bar, full-height app */
+:root {
+  --bg:          #f0f2f5;
+  --surface:     #ffffff;
+  --surface-2:   #e8ecf1;
+  --border:      #d1d8e2;
+  --text:        #1a2130;
+  --text-2:      #5a6578;
+  --accent:      #2563a8;
+  --accent-pale: #dbeafe;
+  --user-bg:     #2563a8;
+  --user-text:   #ffffff;
+  --agent-bg:    #ffffff;
+  --agent-text:  #1a2130;
+  --phase-done:  #15803d;
+  --phase-active:#2563a8;
+  --phase-wait:  #94a3b8;
+  --danger:      #c0392b;
+  --tool-bg:     #f1f5f9;
+  --tool-text:   #64748b;
+  color-scheme: light;
+  --ff-ui:   "DM Sans", system-ui, sans-serif;
+  --ff-chat: "Source Serif 4", Georgia, serif;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg:          #0f1520;
+    --surface:     #1a2335;
+    --surface-2:   #232f45;
+    --border:      #2e3f58;
+    --text:        #e2e8f0;
+    --text-2:      #8fa3be;
+    --accent:      #4a8fd4;
+    --accent-pale: #1e3a5f;
+    --user-bg:     #2563a8;
+    --user-text:   #ffffff;
+    --agent-bg:    #1a2335;
+    --agent-text:  #e2e8f0;
+    --phase-done:  #22c55e;
+    --phase-active:#60a5fa;
+    --phase-wait:  #475569;
+    --tool-bg:     #0f1a2a;
+    --tool-text:   #64748b;
+    color-scheme: dark;
+  }
+}
+
+:root[data-theme="dark"] {
+  --bg:          #0f1520;
+  --surface:     #1a2335;
+  --surface-2:   #232f45;
+  --border:      #2e3f58;
+  --text:        #e2e8f0;
+  --text-2:      #8fa3be;
+  --accent:      #4a8fd4;
+  --accent-pale: #1e3a5f;
+  --user-bg:     #2563a8;
+  --user-text:   #ffffff;
+  --agent-bg:    #1a2335;
+  --agent-text:  #e2e8f0;
+  --phase-done:  #22c55e;
+  --phase-active:#60a5fa;
+  --phase-wait:  #475569;
+  --tool-bg:     #0f1a2a;
+  --tool-text:   #64748b;
+  color-scheme: dark;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body {
+  height: 100%;
+  width: 100%;
+  font-family: var(--ff-ui);
+  background: var(--bg);
+  color: var(--text);
+  font-size: 15px;
+  line-height: 1.5;
+}
+
+/* ── App shell ── */
+#app {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  max-width: 760px;
+  margin: 0 auto;
+  background: var(--surface);
+  border-inline: 1px solid var(--border);
+}
+
+/* ── Header ── */
+header {
+  flex-shrink: 0;
+  padding: 14px 20px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+  position: sticky;
+  top: env(safe-area-inset-top, 0px);
+  z-index: 10;
+}
+
+.header-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.brand-icon {
+  width: 32px;
+  height: 32px;
+  background: var(--accent);
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.brand-icon svg { fill: #fff; }
+
+.brand-name {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text);
+  letter-spacing: -0.01em;
+}
+
+.brand-sub {
+  font-size: 11px;
+  color: var(--text-2);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+#btn-new {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 14px;
+  font-family: var(--ff-ui);
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--accent);
+  background: var(--accent-pale);
+  border: 1px solid transparent;
+  border-radius: 7px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: opacity 0.15s;
+}
+#btn-new:hover { opacity: 0.8; }
+#btn-new svg { flex-shrink: 0; }
+
+/* ── Phase tracker ── */
+.phase-track {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.phase-track::-webkit-scrollbar { display: none; }
+
+.phase-step {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  flex-shrink: 0;
+}
+
+.phase-label {
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  padding: 4px 10px;
+  border-radius: 100px;
+  color: var(--phase-wait);
+  background: transparent;
+  transition: color 0.2s, background 0.2s;
+}
+
+.phase-label.active {
+  color: var(--accent);
+  background: var(--accent-pale);
+}
+
+.phase-label.done {
+  color: var(--phase-done);
+}
+
+.phase-arrow {
+  color: var(--border);
+  font-size: 12px;
+  padding: 0 2px;
+  flex-shrink: 0;
+}
+
+/* ── Chat area ── */
+#chat {
+  flex: 1;
+  overflow-y: auto;
+  padding: 20px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  scroll-behavior: smooth;
+}
+
+/* ── Empty state ── */
+#empty {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  text-align: center;
+  color: var(--text-2);
+  padding: 40px 20px;
+}
+
+#empty svg { opacity: 0.3; }
+
+#empty p {
+  font-size: 14px;
+  max-width: 280px;
+  line-height: 1.6;
+}
+
+/* ── Message bubbles ── */
+.msg {
+  display: flex;
+  flex-direction: column;
+  max-width: 82%;
+}
+
+.msg.user { align-self: flex-end; align-items: flex-end; }
+.msg.agent { align-self: flex-start; align-items: flex-start; }
+
+.bubble {
+  padding: 11px 15px;
+  border-radius: 16px;
+  font-family: var(--ff-chat);
+  font-size: 15px;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.msg.user .bubble {
+  background: var(--user-bg);
+  color: var(--user-text);
+  border-bottom-right-radius: 4px;
+}
+
+.msg.agent .bubble {
+  background: var(--agent-bg);
+  color: var(--agent-text);
+  border: 1px solid var(--border);
+  border-bottom-left-radius: 4px;
+}
+
+.msg-time {
+  font-size: 11px;
+  color: var(--text-2);
+  margin-top: 4px;
+  padding: 0 4px;
+}
+
+/* ── Tool indicator ── */
+.tool-indicator {
+  align-self: flex-start;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 12px;
+  background: var(--tool-bg);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  font-size: 12px;
+  color: var(--tool-text);
+  font-family: var(--ff-ui);
+  max-width: 82%;
+}
+
+.tool-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--accent);
+  animation: pulse 1.2s ease-in-out infinite;
+  flex-shrink: 0;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50%       { opacity: 0.4; transform: scale(0.8); }
+}
+
+/* ── Cursor blink ── */
+.cursor {
+  display: inline-block;
+  width: 2px;
+  height: 1em;
+  background: currentColor;
+  margin-left: 2px;
+  vertical-align: text-bottom;
+  animation: blink 0.9s step-end infinite;
+}
+@keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0; } }
+
+/* ── Input bar ── */
+#input-bar {
+  flex-shrink: 0;
+  display: flex;
+  align-items: flex-end;
+  gap: 10px;
+  padding: 14px 16px;
+  padding-bottom: calc(14px + env(safe-area-inset-bottom, 0px));
+  border-top: 1px solid var(--border);
+  background: var(--surface);
+}
+
+#msg-input {
+  flex: 1;
+  font-family: var(--ff-ui);
+  font-size: 15px;
+  color: var(--text);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 10px 14px;
+  resize: none;
+  outline: none;
+  min-height: 44px;
+  max-height: 140px;
+  line-height: 1.5;
+  transition: border-color 0.15s;
+}
+#msg-input:focus { border-color: var(--accent); }
+#msg-input::placeholder { color: var(--text-2); }
+
+#btn-send {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  background: var(--accent);
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: opacity 0.15s;
+}
+#btn-send:hover { opacity: 0.85; }
+#btn-send:disabled { opacity: 0.4; cursor: not-allowed; }
+#btn-send svg { fill: white; }
+
+/* ── Error banner ── */
+#error-banner {
+  display: none;
+  background: #fef2f2;
+  color: var(--danger);
+  border-bottom: 1px solid #fecaca;
+  padding: 10px 20px;
+  font-size: 13px;
+  font-weight: 500;
+}
+:root[data-theme="dark"] #error-banner,
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) #error-banner {
+  background: #2d1515;
+  border-color: #5c1f1f;
+}}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) #error-banner {
+    background: #2d1515;
+    border-color: #5c1f1f;
+  }
+}
+
+/* ── Theme toggle ── */
+#btn-theme {
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: var(--text-2);
+  flex-shrink: 0;
+}
+#btn-theme:hover { color: var(--text); }
+
+/* ── Session ID chip ── */
+#session-chip {
+  font-size: 11px;
+  color: var(--text-2);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.02em;
+}
+
+/* ── Email sent card ── */
+.email-card {
+  align-self: center;
+  width: 100%;
+  max-width: 420px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  overflow: hidden;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+}
+
+.email-card-header {
+  background: var(--accent);
+  padding: 16px 20px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.email-card-icon {
+  width: 36px;
+  height: 36px;
+  background: rgba(255,255,255,0.2);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.email-card-title {
+  color: #fff;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.3;
+}
+
+.email-card-sub {
+  color: rgba(255,255,255,0.75);
+  font-size: 12px;
+}
+
+.email-card-body {
+  padding: 14px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.email-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+  font-size: 13px;
+}
+
+.email-row-label {
+  color: var(--text-2);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.email-row-value {
+  color: var(--text);
+  text-align: right;
+  word-break: break-all;
+}
+
+.email-send-id {
+  font-variant-numeric: tabular-nums;
+  font-size: 11px;
+  color: var(--text-2);
+  font-family: ui-monospace, monospace;
+}
+
+@media (max-width: 480px) {
+  #session-chip { display: none; }
+  .msg { max-width: 90%; }
+}
+
+/* ── Email preview modal ── */
+#email-modal-backdrop {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.45);
+  z-index: 100;
+  align-items: center;
+  justify-content: center;
+  padding: 24px 16px;
+}
+#email-modal-backdrop.open {
+  display: flex;
+}
+#email-modal {
+  background: var(--surface);
+  border-radius: 16px;
+  width: 100%;
+  max-width: 520px;
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 8px 40px rgba(0,0,0,0.18);
+  overflow: hidden;
+}
+#email-modal-header {
+  background: var(--accent);
+  padding: 18px 20px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  color: white;
+  gap: 12px;
+}
+#email-modal-title {
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+#email-modal-close {
+  background: rgba(255,255,255,0.2);
+  border: none;
+  border-radius: 50%;
+  width: 28px;
+  height: 28px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  flex-shrink: 0;
+}
+#email-modal-close:hover { background: rgba(255,255,255,0.35); }
+#email-modal-meta {
+  padding: 14px 20px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.email-meta-row {
+  display: flex;
+  gap: 8px;
+  font-size: 13px;
+}
+.email-meta-label {
+  color: var(--text-2);
+  width: 52px;
+  flex-shrink: 0;
+}
+.email-meta-value {
+  color: var(--text);
+  font-weight: 500;
+  word-break: break-all;
+}
+#email-modal-body {
+  padding: 16px 20px;
+  overflow-y: auto;
+  font-size: 13px;
+  line-height: 1.65;
+  color: var(--text);
+  white-space: pre-wrap;
+  font-family: ui-monospace, monospace;
+  background: var(--bg);
+  flex: 1;
+}
+.email-card-preview-btn {
+  margin-top: 10px;
+  padding: 6px 14px;
+  background: var(--accent);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 13px;
+  cursor: pointer;
+  align-self: flex-start;
+}
+.email-card-preview-btn:hover { opacity: 0.85; }
+</style>
+
+<!-- Email preview modal -->
+<div id="email-modal-backdrop">
+  <div id="email-modal">
+    <div id="email-modal-header">
+      <span id="email-modal-title">Email Preview</span>
+      <button id="email-modal-close" aria-label="Close">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+      </button>
+    </div>
+    <div id="email-modal-meta">
+      <div class="email-meta-row">
+        <span class="email-meta-label">To</span>
+        <span class="email-meta-value" id="email-modal-to">—</span>
+      </div>
+      <div class="email-meta-row">
+        <span class="email-meta-label">Subject</span>
+        <span class="email-meta-value" id="email-modal-subject">—</span>
+      </div>
+    </div>
+    <div id="email-modal-body"></div>
+  </div>
+</div>
+
+<div id="app">
+  <header>
+    <div class="header-row">
+      <div class="brand">
+        <div class="brand-icon">
+          <svg width="18" height="18" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 14H9V8h2v8zm4 0h-2V8h2v8z"/></svg>
+        </div>
+        <div>
+          <div class="brand-name">Claims Support</div>
+          <div class="brand-sub">SOP Agent Demo</div>
+        </div>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px">
+        <span id="session-chip"></span>
+        <button id="btn-theme" title="Toggle theme" onclick="toggleTheme()">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M12 7c-2.76 0-5 2.24-5 5s2.24 5 5 5 5-2.24 5-5-2.24-5-5-5zM2 13h2c.55 0 1-.45 1-1s-.45-1-1-1H2c-.55 0-1 .45-1 1s.45 1 1 1zm18 0h2c.55 0 1-.45 1-1s-.45-1-1-1h-2c-.55 0-1 .45-1 1s.45 1 1 1zM11 2v2c0 .55.45 1 1 1s1-.45 1-1V2c0-.55-.45-1-1-1s-1 .45-1 1zm0 18v2c0 .55.45 1 1 1s1-.45 1-1v-2c0-.55-.45-1-1-1s-1 .45-1 1zM5.99 4.58c-.39-.39-1.03-.39-1.41 0-.39.39-.39 1.02 0 1.41l1.06 1.06c.39.39 1.03.39 1.41 0s.39-1.02 0-1.41L5.99 4.58zm12.37 12.37c-.39-.39-1.03-.39-1.41 0-.39.39-.39 1.02 0 1.41l1.06 1.06c.39.39 1.03.39 1.41 0 .39-.39.39-1.02 0-1.41l-1.06-1.06zm1.06-12.37l-1.06 1.06c-.39.39-.39 1.02 0 1.41s1.02.39 1.41 0l1.06-1.06c.39-.39.39-1.02 0-1.41s-1.02-.39-1.41 0zM7.05 18.36l-1.06 1.06c-.39.39-.39 1.02 0 1.41s1.02.39 1.41 0l1.06-1.06c.39-.39.39-1.02 0-1.41s-1.02-.39-1.41 0z"/></svg>
+        </button>
+        <button id="btn-new" onclick="newSession()">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-2 10h-4v4h-2v-4H7v-2h4V7h2v4h4v2z"/></svg>
+          New Session
+        </button>
+      </div>
+    </div>
+
+    <div class="phase-track" id="phase-track">
+      <div class="phase-step">
+        <span class="phase-label active" data-phase="VERIFY_ID">Verify ID</span>
+      </div>
+      <span class="phase-arrow">›</span>
+      <div class="phase-step">
+        <span class="phase-label" data-phase="RESOLVE_INTENT">Find Claim</span>
+      </div>
+      <span class="phase-arrow">›</span>
+      <div class="phase-step">
+        <span class="phase-label" data-phase="PROCESS_CASE">Process</span>
+      </div>
+      <span class="phase-arrow">›</span>
+      <div class="phase-step">
+        <span class="phase-label" data-phase="POST_PROCESS">Follow-up</span>
+      </div>
+      <span class="phase-arrow">›</span>
+      <div class="phase-step">
+        <span class="phase-label" data-phase="DONE">Done</span>
+      </div>
+    </div>
+  </header>
+
+  <div id="error-banner"></div>
+
+  <div id="chat">
+    <div id="empty">
+      <svg width="48" height="48" viewBox="0 0 24 24" fill="currentColor"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z"/></svg>
+      <p>Start by telling the agent your name and why you're calling. Identity verification is required before any claim details can be shared.</p>
+    </div>
+  </div>
+
+  <div id="input-bar">
+    <textarea id="msg-input" placeholder="Type your message…" rows="1" autocomplete="off"></textarea>
+    <button id="btn-send" title="Send">
+      <svg width="18" height="18" viewBox="0 0 24 24"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
+    </button>
+  </div>
+</div>
+
+<script>
+// ── State ──────────────────────────────────────────────────────────────────────
+const API = '';  // same origin
+let sessionId = null;
+let sending = false;
+
+const PHASE_ORDER = ['VERIFY_ID','RESOLVE_INTENT','PROCESS_CASE','POST_PROCESS','DONE','HUMAN_HANDOFF'];
+
+const TOOL_LABELS = {
+  record_user_information: 'Recording information…',
+  find_claims:             'Searching claims…',
+  select_claim:            'Selecting claim…',
+  get_claim_info:          'Retrieving claim details…',
+  record_customer_decision:'Recording decision…',
+  prepare_summary_email:   'Preparing summary…',
+  send_summary_email:      'Sending email…',
+  request_human_handoff:   'Requesting human agent…',
+  restart_claim_selection: 'Resetting claim selection…',
+};
+
+// ── DOM refs ───────────────────────────────────────────────────────────────────
+const chatEl    = document.getElementById('chat');
+const emptyEl   = document.getElementById('empty');
+const inputEl   = document.getElementById('msg-input');
+const sendBtn   = document.getElementById('btn-send');
+const errBanner = document.getElementById('error-banner');
+const chipEl    = document.getElementById('session-chip');
+
+// ── Theme ──────────────────────────────────────────────────────────────────────
+function toggleTheme() {
+  const curr = document.documentElement.getAttribute('data-theme');
+  const next = curr === 'dark' ? 'light' : curr === 'light' ? null : 'dark';
+  if (next) document.documentElement.setAttribute('data-theme', next);
+  else document.documentElement.removeAttribute('data-theme');
+  try { localStorage.setItem('theme', next ?? 'system'); } catch(_) {}
+}
+try {
+  const t = localStorage.getItem('theme');
+  if (t && t !== 'system') document.documentElement.setAttribute('data-theme', t);
+} catch(_) {}
+
+// ── Session ────────────────────────────────────────────────────────────────────
+async function newSession() {
+  chatEl.innerHTML = '';
+  chatEl.appendChild(emptyEl);
+  emptyEl.hidden = false;
+  setPhase('VERIFY_ID');
+  showError('');
+
+  try {
+    const r = await fetch(`${API}/api/session`, { method: 'POST' });
+    const d = await r.json();
+    sessionId = d.session_id;
+    const short = sessionId.replace('session_', '').slice(-6);
+    chipEl.textContent = `#${short}`;
+  } catch(e) {
+    showError('Could not connect to server. Make sure the server is running on port 3000.');
+  }
+}
+
+// ── Phase tracker ──────────────────────────────────────────────────────────────
+function setPhase(phase) {
+  const phaseIdx = PHASE_ORDER.indexOf(phase);
+  document.querySelectorAll('.phase-label').forEach(el => {
+    const p = el.dataset.phase;
+    const idx = PHASE_ORDER.indexOf(p);
+    el.classList.remove('active','done');
+    if (p === phase) el.classList.add('active');
+    else if (idx < phaseIdx) el.classList.add('done');
+  });
+}
+
+// ── Messages ───────────────────────────────────────────────────────────────────
+function now() {
+  return new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+}
+
+function addUserMsg(text) {
+  emptyEl.hidden = true;
+  const div = document.createElement('div');
+  div.className = 'msg user';
+  div.innerHTML = `<div class="bubble">${escHtml(text)}</div><div class="msg-time">${now()}</div>`;
+  chatEl.appendChild(div);
+  scrollBottom();
+}
+
+function addAgentMsg() {
+  emptyEl.hidden = true;
+  const div = document.createElement('div');
+  div.className = 'msg agent';
+  const bubble = document.createElement('div');
+  bubble.className = 'bubble';
+  const cursor = document.createElement('span');
+  cursor.className = 'cursor';
+  bubble.appendChild(cursor);
+  const time = document.createElement('div');
+  time.className = 'msg-time';
+  div.appendChild(bubble);
+  div.appendChild(time);
+  chatEl.appendChild(div);
+  scrollBottom();
+  return { div, bubble, cursor, time };
+}
+
+function addToolIndicator(name) {
+  const div = document.createElement('div');
+  div.className = 'tool-indicator';
+  div.innerHTML = `<div class="tool-dot"></div><span>${escHtml(TOOL_LABELS[name] ?? name)}</span>`;
+  chatEl.appendChild(div);
+  scrollBottom();
+  return div;
+}
+
+function escHtml(s) {
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function scrollBottom() {
+  chatEl.scrollTop = chatEl.scrollHeight;
+}
+
+function addEmailCard(recipient, sendId, subject, body) {
+  emptyEl.hidden = true;
+  const card = document.createElement('div');
+  card.className = 'email-card';
+  card.innerHTML = `
+    <div class="email-card-header">
+      <div class="email-card-icon">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="white"><path d="M20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4l-8 5-8-5V6l8 5 8-5v2z"/></svg>
+      </div>
+      <div>
+        <div class="email-card-title">Summary email sent</div>
+        <div class="email-card-sub">Delivered successfully</div>
+      </div>
+    </div>
+    <div class="email-card-body">
+      <div class="email-row">
+        <span class="email-row-label">To</span>
+        <span class="email-row-value">${escHtml(recipient ?? '—')}</span>
+      </div>
+      <div class="email-row">
+        <span class="email-row-label">Time</span>
+        <span class="email-row-value">${now()}</span>
+      </div>
+      <div class="email-row">
+        <span class="email-row-label">Reference</span>
+        <span class="email-row-value email-send-id">${escHtml(sendId ?? '—')}</span>
+      </div>
+    </div>
+  `;
+  if (subject || body) {
+    const btn = document.createElement('button');
+    btn.className = 'email-card-preview-btn';
+    btn.textContent = 'Preview email';
+    btn.style.margin = '0 16px 16px';
+    btn.onclick = () => openEmailModal(recipient, subject, body);
+    card.appendChild(btn);
+  }
+  chatEl.appendChild(card);
+  scrollBottom();
+  if (subject || body) openEmailModal(recipient, subject, body);
+}
+
+const emailModalBackdrop = document.getElementById('email-modal-backdrop');
+document.getElementById('email-modal-close').onclick = () => emailModalBackdrop.classList.remove('open');
+emailModalBackdrop.addEventListener('click', e => { if (e.target === emailModalBackdrop) emailModalBackdrop.classList.remove('open'); });
+
+function openEmailModal(recipient, subject, body) {
+  document.getElementById('email-modal-to').textContent = recipient ?? '—';
+  document.getElementById('email-modal-subject').textContent = subject ?? '—';
+  document.getElementById('email-modal-body').textContent = body ?? '';
+  emailModalBackdrop.classList.add('open');
+}
+
+// ── Error ──────────────────────────────────────────────────────────────────────
+function showError(msg) {
+  errBanner.textContent = msg;
+  errBanner.style.display = msg ? 'block' : 'none';
+}
+
+// ── Send ───────────────────────────────────────────────────────────────────────
+async function send() {
+  if (sending || !sessionId) return;
+  const text = inputEl.value.trim();
+  if (!text) return;
+
+  inputEl.value = '';
+  inputEl.style.height = 'auto';
+  sending = true;
+  sendBtn.disabled = true;
+  showError('');
+
+  addUserMsg(text);
+
+  const { div: agentDiv, bubble, cursor, time } = addAgentMsg();
+  let agentText = '';
+  let toolEl = null;
+
+  try {
+    const res = await fetch(`${API}/api/session/${sessionId}/message`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ message: text }),
+    });
+
+    const reader = res.body.getReader();
+    const dec = new TextDecoder();
+    let buf = '';
+
+    while (true) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      buf += dec.decode(value, { stream: true });
+
+      const lines = buf.split('\n');
+      buf = lines.pop() ?? '';
+
+      for (const line of lines) {
+        if (!line.startsWith('data: ')) continue;
+        let evt;
+        try { evt = JSON.parse(line.slice(6)); } catch { continue; }
+
+        if (evt.type === 'text_delta') {
+          // Remove any tool indicator when text starts
+          if (toolEl) { toolEl.remove(); toolEl = null; }
+          agentText += evt.delta;
+          bubble.textContent = agentText;
+          bubble.appendChild(cursor);
+          scrollBottom();
+        }
+
+        if (evt.type === 'tool_start') {
+          if (!agentText) {
+            if (toolEl) toolEl.remove();
+            toolEl = addToolIndicator(evt.name);
+          }
+        }
+
+        if (evt.type === 'tool_end') {
+          if (toolEl && !agentText) { toolEl.remove(); toolEl = null; }
+        }
+
+        if (evt.type === 'email_sent') {
+          addEmailCard(evt.recipient, evt.send_id, evt.subject, evt.body);
+        }
+
+        if (evt.type === 'done') {
+          cursor.remove();
+          if (agentText) {
+            time.textContent = now();
+          } else {
+            agentDiv.remove();
+          }
+          if (evt.phase) setPhase(evt.phase);
+          if (toolEl) { toolEl.remove(); toolEl = null; }
+        }
+
+        if (evt.type === 'error') {
+          cursor.remove();
+          bubble.textContent = agentText || 'An error occurred.';
+          showError(evt.message ?? 'Unknown error');
+          if (toolEl) { toolEl.remove(); toolEl = null; }
+        }
+      }
+    }
+  } catch(e) {
+    cursor.remove();
+    if (!agentText) bubble.textContent = '…';
+    showError('Connection error. Is the server running?');
+    if (toolEl) { toolEl.remove(); toolEl = null; }
+  }
+
+  sending = false;
+  sendBtn.disabled = false;
+  inputEl.focus();
+}
+
+// ── Input auto-resize ──────────────────────────────────────────────────────────
+inputEl.addEventListener('input', () => {
+  inputEl.style.height = 'auto';
+  inputEl.style.height = Math.min(inputEl.scrollHeight, 140) + 'px';
+});
+
+inputEl.addEventListener('keydown', e => {
+  if (e.key === 'Enter' && !e.shiftKey) {
+    e.preventDefault();
+    send();
+  }
+});
+
+sendBtn.addEventListener('click', send);
+
+// ── Init ───────────────────────────────────────────────────────────────────────
+newSession();
+</script>

@@ -110,12 +110,17 @@ export function reduceSessionEvents(events: SessionEvent[]): SessionFacts {
           const nextVersion = (existing?.version ?? 0) + 1;
 
           if (obs.operation === "withdraw") {
-            delete facts.identity.provided_fields[obs.field];
-            // Invalidate verification when a field is withdrawn.
-            if (facts.identity.verification?.matched_fields.includes(obs.field)) {
-              facts.identity.verification = null;
+            const currentVal = facts.identity.provided_fields[obs.field]?.value;
+            // Only delete if the stored value is the one being withdrawn.
+            // If a "correct" earlier in this same batch already replaced it, skip.
+            if (currentVal === undefined || currentVal === obs.normalized_value) {
+              delete facts.identity.provided_fields[obs.field];
+              // Invalidate verification when a field is withdrawn.
+              if (facts.identity.verification?.matched_fields.includes(obs.field)) {
+                facts.identity.verification = null;
+              }
+              identityChanged = true;
             }
-            identityChanged = true;
           } else {
             // provide or correct
             if (existing && existing.value === obs.normalized_value) continue; // no-op
